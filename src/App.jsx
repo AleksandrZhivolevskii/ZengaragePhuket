@@ -44,6 +44,8 @@ const INIT_STAFF = [
 const fmt  = h=>`${String(Math.floor(h)).padStart(2,"0")}:${Math.round((h%1)*60)===0?"00":"30"}`;
 const fmtH = h=>h<1?`${h*60}мин`:`${h}ч`;
 const snap = h=>Math.round(h/STEP)*STEP;
+// Перенос текста максимум на 2 строки, дальше «…»
+const clamp2 = {display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden",wordBreak:"break-word"};
 const clamp= (v,a,b)=>Math.max(a,Math.min(b,v));
 // Пхукет = Asia/Bangkok = UTC+7
 const TZ = 'Asia/Bangkok';
@@ -636,7 +638,7 @@ function DayView({date,staff,bookings,onSlotClick,activeStaffId}){
           <div style={{position:"absolute",top:toPx(12),left:0,right:0,height:PPH,background:"rgba(211,209,199,0.12)",zIndex:1}}/>
           {slots.map(sl=>{
             const k=bKey(s.id,date,sl.id),bk=bookings[k];
-            const top=toPx(sl.start),height=Math.max((sl.end-sl.start)*PPH-3,14);
+            const top=toPx(sl.start),height=Math.max((sl.end-sl.start)*PPH-4,16);
             const sc=bk?.status==="cancelled"?C.red:bk?.status==="pending"?C.amber:C.green;
             const isCont=bk?.isContinuation;
             return(<div key={sl.id} onClick={()=>!isPast&&onSlotClick(s,sl,date,bk,k)}
@@ -646,18 +648,18 @@ function DayView({date,staff,bookings,onSlotClick,activeStaffId}){
                 cursor:isPast?"default":"pointer",overflow:"hidden",transition:"transform 0.1s,box-shadow 0.1s"}}
               onMouseEnter={e=>{if(!isPast){e.currentTarget.style.transform="scale(1.01)";e.currentTarget.style.boxShadow="0 2px 8px rgba(26,63,92,0.15)";}}}
               onMouseLeave={e=>{e.currentTarget.style.transform="scale(1)";e.currentTarget.style.boxShadow="none";}}>
-              <div style={{padding:"4px 7px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"space-between",overflow:"hidden"}}>
-                <div>
-                  <div style={{fontSize:9,fontWeight:700,color:sl.textColor,lineHeight:1.3}}>{sl.label}</div>
+              <div style={{padding:"4px 7px",height:"100%",display:"flex",flexDirection:"column",justifyContent:"flex-start",gap:1,overflow:"hidden"}}>
+                {bk?(<>
+                  {bk.car&&<div style={{...clamp2,fontSize:10,fontWeight:800,color:C.primary,lineHeight:1.2}}>{bk.car}</div>}
+                  <div style={{...clamp2,fontSize:9,color:C.muted,lineHeight:1.2}}>{bk.client}{isCont?" ⛓":""}</div>
+                  <div style={{...clamp2,fontSize:8,fontWeight:700,color:sc,lineHeight:1.2}}>{bk.status==="confirmed"?"✅":bk.status==="pending"?"⏳":"❌"} {isCont?"Продолжение":bk.work}</div>
+                </>):(<>
+                  <div style={{...clamp2,fontSize:9,fontWeight:700,color:sl.textColor,lineHeight:1.25}}>{sl.label}</div>
                   <div style={{fontSize:8,color:sl.textColor,opacity:0.7}}>{fmt(sl.start)}–{fmt(sl.end)}</div>
-                </div>
-                {bk?(<div style={{marginTop:2}}>
-                  <div style={{fontSize:10,fontWeight:700,color:C.primary,lineHeight:1.2}}>{bk.client}{isCont?" ⛓":""}</div>
-                  {bk.car&&<div style={{fontSize:8,color:C.muted}}>{bk.car}</div>}
-                  <div style={{fontSize:8,fontWeight:700,color:sc,marginTop:1}}>{bk.status==="confirmed"?"✅":bk.status==="pending"?"⏳":"❌"} {isCont?"Продолжение":bk.work}</div>
-                </div>):(<div style={{fontSize:8,color:sl.textColor,opacity:sl.eff?0.7:0.4,fontStyle:sl.eff?"normal":"italic"}}>
-                  {sl.eff?"▸ Нажмите чтобы записать":"Буфер / надзор"}
-                </div>)}
+                  <div style={{fontSize:8,color:sl.textColor,opacity:sl.eff?0.7:0.4,fontStyle:sl.eff?"normal":"italic"}}>
+                    {sl.eff?"▸ Нажмите чтобы записать":"Буфер / надзор"}
+                  </div>
+                </>)}
               </div>
             </div>);
           })}
