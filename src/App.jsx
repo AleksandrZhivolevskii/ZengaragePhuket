@@ -530,6 +530,32 @@ function DayBar({staff,date,bookings,onSlotClick,compact=false}){
 }
 
 // ── MONTH VIEW ────────────────────────────────────────────────────────────────
+// ── BATTERY: загрузка сотрудника за день ──────────────────────────────────────
+// Норма = сумма часов рабочих (eff) слотов; загрузка = часы броней (кроме отменённых)
+function Battery({staff,date,bookings}){
+  let norm=0,load=0;
+  buildSlots(staff).forEach(sl=>{
+    if(!sl.eff)return;
+    const dur=sl.end-sl.start;norm+=dur;
+    const bk=bookings[bKey(staff.id,date,sl.id)];
+    if(bk&&bk.status!=="cancelled")load+=dur;
+  });
+  if(norm<=0)return null;
+  const ratio=clamp(load/norm,0,1),pct=Math.round(ratio*100);
+  const col=ratio>=0.85?C.green:C.sub;
+  const r1=h=>Math.round(h*10)/10;
+  return(<div style={{display:"flex",alignItems:"center",gap:4}}>
+    <span style={{fontSize:9,flexShrink:0}}>{staff.emoji}</span>
+    <div style={{flex:1,display:"flex",alignItems:"center",minWidth:0}}>
+      <div style={{flex:1,height:11,border:`1.5px solid ${col}66`,borderRadius:3,background:"#EEF1F4",position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",left:0,top:0,bottom:0,width:`${pct}%`,background:col,borderRadius:1,transition:"width 0.25s"}}/>
+      </div>
+      <div style={{width:2.5,height:5,background:`${col}66`,borderRadius:1,marginLeft:1,flexShrink:0}}/>
+    </div>
+    <span style={{fontSize:8,fontWeight:700,color:col,flexShrink:0}}>{r1(load)}/{r1(norm)}</span>
+  </div>);
+}
+
 function MonthView({staff,bookings,onDayClick,currentDate,activeStaffId}){
   const year=currentDate.getFullYear(),month=currentDate.getMonth();
   const fd=new Date(year,month,1),ld=new Date(year,month+1,0),sd=(fd.getDay()+6)%7,td=today();
@@ -546,20 +572,14 @@ function MonthView({staff,bookings,onDayClick,currentDate,activeStaffId}){
         if(!date)return<div key={i} style={{minHeight:80}}/>;
         const isPast=date<td&&!isSameDay(date,td),isToday=isSameDay(date,td);
         const dow=(date.getDay()+6)%7+1,ws=vis.filter(s=>s.workDays.includes(dow));
-        let tot=0,bk=0;ws.forEach(s=>buildSlots(s).forEach(sl=>{tot++;if(bookings[bKey(s.id,date,sl.id)])bk++;}));
         return(<div key={i} onClick={()=>onDayClick(date)}
-          style={{minHeight:80,borderRadius:8,background:isToday?"#EAF2FF":isPast?"#F8F8F8":C.card,border:`1.5px solid ${isToday?C.sub:C.border}`,padding:"5px 6px",cursor:"pointer"}}
+          style={{minHeight:90,borderRadius:8,background:isToday?"#EAF2FF":isPast?"#F8F8F8":C.card,border:`1.5px solid ${isToday?C.sub:C.border}`,padding:"5px 6px",cursor:"pointer"}}
           onMouseEnter={e=>!isPast&&(e.currentTarget.style.boxShadow="0 2px 8px rgba(26,63,92,0.1)")}
           onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
           <div style={{fontSize:12,fontWeight:isToday?800:500,color:isToday?C.sub:isPast?C.muted:C.primary,marginBottom:3}}>{date.getDate()}</div>
-          {!isPast&&ws.map(s=><div key={s.id} style={{marginBottom:2}}>
-            <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:1}}>
-              <span style={{fontSize:8}}>{s.emoji}</span>
-              <div style={{flex:1}}><DayBar staff={s} date={date} bookings={bookings} onSlotClick={()=>onDayClick(date)} compact={true}/></div>
-            </div>
-          </div>)}
-          {tot>0&&!isPast&&<div style={{fontSize:8,color:bk>0?C.sub:C.muted,fontWeight:600,marginTop:2}}>{bk}/{tot} зап.</div>}
-          {isPast&&bk>0&&<div style={{fontSize:8,color:C.muted}}>{bk} зап.</div>}
+          {ws.length>0&&<div style={{opacity:isPast?0.5:1,display:"flex",flexDirection:"column",gap:3,marginTop:1}}>
+            {ws.map(s=><Battery key={s.id} staff={s} date={date} bookings={bookings}/>)}
+          </div>}
         </div>);
       })}
     </div>
