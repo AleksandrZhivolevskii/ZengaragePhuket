@@ -591,26 +591,44 @@ function WeekView({weekStart,staff,bookings,onDayClick,onSlotClick,activeStaffId
   const days=Array.from({length:7},(_,i)=>addDays(weekStart,i));
   const td=today(),filtered=activeStaffId==="all"?staff:staff.filter(s=>s.id===activeStaffId);
   return(<div style={{overflowX:"auto"}}>
-    <div style={{display:"grid",gridTemplateColumns:`110px repeat(7,1fr)`,minWidth:600}}>
-      <div style={{background:C.bg,borderBottom:`2px solid ${C.border}`,borderRight:`1px solid ${C.border}`,padding:"8px 6px"}}/>
+    <div style={{display:"grid",gridTemplateColumns:`140px repeat(7,1fr)`,minWidth:940}}>
+      <div style={{background:C.bg,borderBottom:`2px solid ${C.border}`,borderRight:`1px solid ${C.border}`,padding:"10px 8px"}}/>
       {days.map((d,i)=>{const isT=isSameDay(d,td),isPast=d<td&&!isT;return(
-        <div key={i} onClick={()=>onDayClick(d)} style={{background:isT?"#EAF2FF":C.bg,padding:"6px 4px",textAlign:"center",borderBottom:`2px solid ${isT?C.sub:C.border}`,borderRight:`1px solid ${C.border}`,cursor:"pointer"}}>
-          <div style={{fontSize:10,fontWeight:700,color:isT?C.sub:C.muted}}>{DAYS_RU[i]}</div>
-          <div style={{fontSize:14,fontWeight:isT?800:400,color:isT?C.sub:isPast?C.muted:C.primary}}>{d.getDate()}</div>
+        <div key={i} onClick={()=>onDayClick(d)} style={{background:isT?"#EAF2FF":C.bg,padding:"8px 4px",textAlign:"center",borderBottom:`2px solid ${isT?C.sub:C.border}`,borderRight:`1px solid ${C.border}`,cursor:"pointer"}}>
+          <div style={{fontSize:11,fontWeight:700,color:isT?C.sub:C.muted}}>{DAYS_RU[i]}</div>
+          <div style={{fontSize:17,fontWeight:isT?800:500,color:isT?C.sub:isPast?C.muted:C.primary}}>{d.getDate()}</div>
         </div>
       );})}
       {filtered.map(s=>(<>
-        <div key={s.id+"l"} style={{background:s.color+"33",padding:"8px 10px",borderBottom:`1px solid ${C.border}`,borderRight:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6}}>
-          <span style={{fontSize:16}}>{s.emoji}</span>
-          <div><div style={{fontSize:11,fontWeight:700,color:C.primary}}>{s.name}</div><div style={{fontSize:8,color:C.muted}}>{s.role}</div></div>
+        <div key={s.id+"l"} style={{background:s.color+"33",padding:"10px 12px",borderBottom:`1px solid ${C.border}`,borderRight:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:7}}>
+          <span style={{fontSize:18}}>{s.emoji}</span>
+          <div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>{s.name}</div><div style={{fontSize:9,color:C.muted}}>{s.role}</div></div>
         </div>
         {days.map((d,di)=>{
-          const isPast=d<td&&!isSameDay(d,td);
-          return(<div key={di} style={{borderBottom:`1px solid ${C.border}`,borderRight:`1px solid ${C.border}`,padding:"6px 5px",background:isPast?"#FAFAFA":C.card,minHeight:52}}>
-            <DayBar staff={s} date={d} bookings={bookings} onSlotClick={onSlotClick} compact={false}/>
-            <div style={{display:"flex",justifyContent:"space-between",marginTop:2,fontSize:7,color:C.muted}}>
-              <span>{fmt(DAY_START)}</span><span>12:00</span><span>{fmt(DAY_END)}</span>
-            </div>
+          const isPast=d<td&&!isSameDay(d,td),dow=(d.getDay()+6)%7+1,works=s.workDays.includes(dow);
+          const items=[];
+          if(works)buildSlots(s).forEach(sl=>{const bk=bookings[bKey(s.id,d,sl.id)];if(bk)items.push({sl,bk});});
+          const hasActive=items.some(it=>it.bk.status!=="cancelled");
+          const bg=!works?"#F0F0F0":hasActive?"#EAF7EE":(isPast?"#FAFAFA":C.card);
+          return(<div key={di} onClick={()=>works&&!isPast&&onDayClick(d)}
+            style={{borderBottom:`1px solid ${C.border}`,borderRight:`1px solid ${C.border}`,padding:"7px 8px",background:bg,minHeight:84,display:"flex",flexDirection:"column",cursor:works&&!isPast?"pointer":"default"}}>
+            {!works?(
+              <div style={{margin:"auto",fontSize:11,color:C.muted,fontStyle:"italic"}}>выходной</div>
+            ):items.length===0?null:(
+              <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                {items.map(({sl,bk})=>{
+                  const cancelled=bk.status==="cancelled";
+                  const icon=bk.status==="confirmed"?"✅":bk.status==="pending"?"⏳":"❌";
+                  const work=bk.isContinuation?"Продолжение":(bk.work||sl.label);
+                  return(<div key={sl.id} onClick={e=>{if(!isPast){e.stopPropagation();onSlotClick(s,sl,d,bk,bKey(s.id,d,sl.id));}}}
+                    style={{...clamp2,fontSize:11,lineHeight:1.3,color:cancelled?C.muted:C.primary,textDecoration:cancelled?"line-through":"none",cursor:isPast?"default":"pointer"}}>
+                    <span style={{marginRight:3}}>{icon}</span>
+                    <span style={{color:C.muted,fontWeight:600}}>{fmt(sl.start)}</span>{" "}
+                    <b>{bk.car||"—"}</b> — {work}
+                  </div>);
+                })}
+              </div>
+            )}
           </div>);
         })}
       </>))}
