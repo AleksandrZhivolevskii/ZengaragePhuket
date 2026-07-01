@@ -13,10 +13,33 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// Гарантирует, что таблицы и колонки существуют (идемпотентно, безопасно).
+let schemaReady = false;
+async function ensureSchema() {
+  if (schemaReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS clients (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL);
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone      VARCHAR(50);
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS messenger  VARCHAR(120);
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS note       TEXT;
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+    CREATE TABLE IF NOT EXISTS cars (id SERIAL PRIMARY KEY, client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE);
+    ALTER TABLE cars ADD COLUMN IF NOT EXISTS make       VARCHAR(120);
+    ALTER TABLE cars ADD COLUMN IF NOT EXISTS model      VARCHAR(120);
+    ALTER TABLE cars ADD COLUMN IF NOT EXISTS vin        VARCHAR(60);
+    ALTER TABLE cars ADD COLUMN IF NOT EXISTS plate      VARCHAR(40);
+    ALTER TABLE cars ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+    CREATE INDEX IF NOT EXISTS idx_cars_client ON cars(client_id);
+  `);
+  schemaReady = true;
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' };
 
   try {
+    await ensureSchema();
     // ── GET: все клиенты с машинами ──────────────────────────────────────────
     if (event.httpMethod === 'GET') {
       const clients = (await pool.query(
