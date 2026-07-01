@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import * as XLSX from "xlsx";
 
 const MONTHS_RU = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 const DAYS_RU   = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
@@ -1214,6 +1215,167 @@ function StaffSettings({staff,setStaff}){
   </div>);
 }
 
+// ── CLIENT DATABASE ─────────────────────────────────────────────────────────
+function L({children}){return <div style={{fontSize:11,fontWeight:600,color:C.muted,marginBottom:3}}>{children}</div>;}
+function Modal({title,onClose,children}){
+  return(<div style={{position:"fixed",inset:0,background:"rgba(26,63,92,0.55)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:12,overflowY:"auto"}} onClick={onClose}>
+    <div onClick={e=>e.stopPropagation()} style={{background:C.card,borderRadius:16,width:"100%",maxWidth:440,boxShadow:"0 8px 40px rgba(26,63,92,0.25)",margin:"auto"}}>
+      <div style={{padding:"14px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{fontSize:15,fontWeight:800,color:C.primary}}>{title}</div>
+        <button onClick={onClose} style={{background:"rgba(0,0,0,0.08)",border:"none",borderRadius:8,width:28,height:28,cursor:"pointer",fontSize:16}}>×</button>
+      </div>
+      <div style={{padding:16}}>{children}</div>
+    </div>
+  </div>);
+}
+
+function ClientBase(){
+  const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:13,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
+  const [clients,setClients]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [busy,setBusy]=useState(false);
+  const [q,setQ]=useState("");
+  const [expanded,setExpanded]=useState(null);
+  const [clientForm,setClientForm]=useState(null);
+  const [carForm,setCarForm]=useState(null);
+  const fileRef=useRef(null);
+
+  const load=()=>{setLoading(true);apiGet('/directory').then(r=>{if(r.clients)setClients(r.clients);setLoading(false);}).catch(()=>setLoading(false));};
+  useEffect(load,[]);
+
+  const filtered=useMemo(()=>{
+    const s=q.trim().toLowerCase();
+    if(!s)return clients;
+    return clients.filter(c=>((c.name||"")+" "+(c.phone||"")+" "+(c.messenger||"")+" "+(c.note||"")+" "+(c.cars||[]).map(x=>`${x.make||""} ${x.model||""} ${x.vin||""} ${x.plate||""}`).join(" ")).toLowerCase().includes(s));
+  },[clients,q]);
+
+  const saveClient=async()=>{
+    const c=clientForm;
+    if(!c.name||!c.name.trim())return alert("Введите имя клиента");
+    setBusy(true);await apiPost('/directory',{op:'upsertClient',client:c}).catch(()=>{});
+    setBusy(false);setClientForm(null);load();
+  };
+  const delClient=async(id)=>{if(!confirm("Удалить клиента и все его машины?"))return;setBusy(true);await apiPost('/directory',{op:'deleteClient',id}).catch(()=>{});setBusy(false);load();};
+  const saveCar=async()=>{setBusy(true);await apiPost('/directory',{op:'upsertCar',car:carForm}).catch(()=>{});setBusy(false);setCarForm(null);load();};
+  const delCar=async(id)=>{if(!confirm("Удалить машину?"))return;setBusy(true);await apiPost('/directory',{op:'deleteCar',id}).catch(()=>{});setBusy(false);load();};
+
+  const H=["Имя","Телефон","Мессенджер","Заметка","Марка","Модель","VIN","Гос.номер"];
+  const exportXlsx=()=>{
+    const rows=[];
+    clients.forEach(c=>{
+      const base={"Имя":c.name,"Телефон":c.phone||"","Мессенджер":c.messenger||"","Заметка":c.note||""};
+      if(!c.cars||!c.cars.length)rows.push({...base,"Марка":"","Модель":"","VIN":"","Гос.номер":""});
+      else c.cars.forEach(car=>rows.push({...base,"Марка":car.make||"","Модель":car.model||"","VIN":car.vin||"","Гос.номер":car.plate||""}));
+    });
+    const ws=XLSX.utils.json_to_sheet(rows,{header:H});
+    ws["!cols"]=H.map(()=>({wch:16}));
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"База");
+    XLSX.writeFile(wb,`zen-garage-baza-${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+  const onFile=(e)=>{
+    const file=e.target.files&&e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=async(ev)=>{
+      try{
+        const wb=XLSX.read(ev.target.result,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const raw=XLSX.utils.sheet_to_json(ws,{defval:""});
+        const g=(r,keys)=>{for(const k of keys){if(r[k]!==undefined&&String(r[k]).trim()!=="")return String(r[k]).trim();}return "";};
+        const map=new Map();
+        raw.forEach(r=>{
+          const name=g(r,["Имя","имя","Name","ФИО"]);if(!name)return;
+          const phone=g(r,["Телефон","телефон","Phone"]);
+          const key=name+"|"+phone;
+          if(!map.has(key))map.set(key,{name,phone,messenger:g(r,["Мессенджер","Messenger","Telegram","WhatsApp"]),note:g(r,["Заметка","Note","Комментарий"]),cars:[]});
+          const car={make:g(r,["Марка","Make"]),model:g(r,["Модель","Model"]),vin:g(r,["VIN","Вин","vin"]),plate:g(r,["Гос.номер","Номер","Госномер","Plate"])};
+          if(car.make||car.model||car.vin||car.plate)map.get(key).cars.push(car);
+        });
+        const list=[...map.values()];
+        if(!list.length){alert("В файле не найдено ни одного клиента (нужна колонка «Имя»).");return;}
+        if(!confirm(`Импорт ЗАМЕНИТ текущую базу (${clients.length} кл.) данными из файла (${list.length} кл.). Продолжить?`))return;
+        setBusy(true);
+        const res=await apiPost('/directory',{op:'import',replace:true,clients:list});
+        setBusy(false);
+        alert(res&&res.success?`Импортировано клиентов: ${list.length}`:"Ошибка импорта: "+((res&&res.error)||"неизвестно"));
+        load();
+      }catch(err){alert("Не удалось прочитать файл: "+err.message);}
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value="";
+  };
+  const btn=(bg,color)=>({padding:"8px 12px",fontSize:12,fontWeight:700,border:"none",borderRadius:8,cursor:"pointer",background:bg,color});
+
+  if(loading)return<div style={{padding:40,textAlign:"center",color:C.muted}}>Загрузка базы…</div>;
+
+  return(<div style={{maxWidth:900,margin:"0 auto"}}>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="🔍 Поиск: имя, телефон, машина, VIN, номер…" style={{...inp,flex:1,minWidth:220}}/>
+      <button onClick={()=>setClientForm({name:"",phone:"",messenger:"",note:""})} style={btn(C.primary,"#fff")}>＋ Клиент</button>
+      <button onClick={exportXlsx} style={btn("#E8F5E9",C.green)}>⬇ Скачать Excel</button>
+      <button onClick={()=>fileRef.current&&fileRef.current.click()} style={btn("#EAF2FF",C.sub)}>⬆ Загрузить Excel</button>
+      <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onFile} style={{display:"none"}}/>
+    </div>
+    <div style={{fontSize:12,color:C.muted,marginBottom:10}}>Клиентов: {clients.length}{q?` · найдено: ${filtered.length}`:""}</div>
+    {filtered.length===0?<div style={{padding:30,textAlign:"center",color:C.muted}}>Ничего не найдено</div>:
+    filtered.map(c=>{
+      const open=expanded===c.id;
+      return(<div key={c.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,marginBottom:8,overflow:"hidden"}}>
+        <div style={{padding:"10px 12px",display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>setExpanded(open?null:c.id)}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:14,fontWeight:700,color:C.primary}}>{c.name}</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:1}}>{c.phone?`📞 ${c.phone}`:""}{c.phone&&c.messenger?"  ·  ":""}{c.messenger?`💬 ${c.messenger}`:""}</div>
+          </div>
+          <div style={{fontSize:11,color:C.sub,fontWeight:600,whiteSpace:"nowrap"}}>🚗 {c.cars.length}</div>
+          <button onClick={e=>{e.stopPropagation();setClientForm({id:c.id,name:c.name,phone:c.phone||"",messenger:c.messenger||"",note:c.note||""});}} style={{...btn("transparent",C.sub),padding:"5px 7px"}}>✎</button>
+          <button onClick={e=>{e.stopPropagation();delClient(c.id);}} style={{...btn("transparent",C.red),padding:"5px 7px"}}>🗑</button>
+          <span style={{color:C.muted,fontSize:12}}>{open?"▲":"▼"}</span>
+        </div>
+        {open&&<div style={{padding:"0 12px 12px",borderTop:`1px solid ${C.border}`}}>
+          {c.note?<div style={{fontSize:12,color:C.muted,margin:"8px 0",fontStyle:"italic"}}>📝 {c.note}</div>:null}
+          <div style={{marginTop:8}}>
+            {c.cars.length===0&&<div style={{fontSize:12,color:C.muted,marginBottom:6}}>Машин пока нет</div>}
+            {c.cars.map(car=>(<div key={car.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",background:C.bg,borderRadius:8,marginBottom:5}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:600,color:C.primary}}>{[car.make,car.model].filter(Boolean).join(" ")||"—"}</div>
+                <div style={{fontSize:10,color:C.muted}}>{car.plate?`№ ${car.plate}`:""}{car.plate&&car.vin?"  ·  ":""}{car.vin?`VIN ${car.vin}`:""}</div>
+              </div>
+              <button onClick={()=>setCarForm({id:car.id,client_id:c.id,make:car.make||"",model:car.model||"",vin:car.vin||"",plate:car.plate||""})} style={{...btn("transparent",C.sub),padding:"4px 7px"}}>✎</button>
+              <button onClick={()=>delCar(car.id)} style={{...btn("transparent",C.red),padding:"4px 7px"}}>🗑</button>
+            </div>))}
+            <button onClick={()=>setCarForm({client_id:c.id,make:"",model:"",vin:"",plate:""})} style={{...btn("#EAF2FF",C.sub),marginTop:4}}>＋ Машина</button>
+          </div>
+        </div>}
+      </div>);
+    })}
+    {clientForm&&<Modal onClose={()=>setClientForm(null)} title={clientForm.id?"Редактировать клиента":"Новый клиент"}>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div><L>Имя *</L><input autoFocus value={clientForm.name} onChange={e=>setClientForm({...clientForm,name:e.target.value})} placeholder="Иван Иванов" style={inp}/></div>
+        <div><L>Телефон</L><input value={clientForm.phone} onChange={e=>setClientForm({...clientForm,phone:e.target.value})} placeholder="+66 ..." style={inp}/></div>
+        <div><L>Мессенджер (Telegram/WhatsApp)</L><input value={clientForm.messenger} onChange={e=>setClientForm({...clientForm,messenger:e.target.value})} placeholder="@username / +66..." style={inp}/></div>
+        <div><L>Заметка</L><textarea value={clientForm.note} onChange={e=>setClientForm({...clientForm,note:e.target.value})} rows={2} placeholder="Доп. информация" style={{...inp,resize:"vertical"}}/></div>
+        <div style={{display:"flex",gap:8,marginTop:4}}>
+          <button onClick={()=>setClientForm(null)} style={{...btn("#F0F4F8",C.primary),flex:1}}>Отмена</button>
+          <button onClick={saveClient} disabled={busy} style={{...btn(C.primary,"#fff"),flex:2,opacity:busy?0.6:1}}>{busy?"…":"Сохранить"}</button>
+        </div>
+      </div>
+    </Modal>}
+    {carForm&&<Modal onClose={()=>setCarForm(null)} title={carForm.id?"Редактировать машину":"Новая машина"}>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <div><L>Марка</L><input autoFocus value={carForm.make} onChange={e=>setCarForm({...carForm,make:e.target.value})} placeholder="BMW" style={inp}/></div>
+          <div><L>Модель</L><input value={carForm.model} onChange={e=>setCarForm({...carForm,model:e.target.value})} placeholder="330i" style={inp}/></div>
+        </div>
+        <div><L>VIN</L><input value={carForm.vin} onChange={e=>setCarForm({...carForm,vin:e.target.value})} placeholder="Необязательно" style={inp}/></div>
+        <div><L>Гос. номер</L><input value={carForm.plate} onChange={e=>setCarForm({...carForm,plate:e.target.value})} placeholder="Необязательно" style={inp}/></div>
+        <div style={{display:"flex",gap:8,marginTop:4}}>
+          <button onClick={()=>setCarForm(null)} style={{...btn("#F0F4F8",C.primary),flex:1}}>Отмена</button>
+          <button onClick={saveCar} disabled={busy} style={{...btn(C.primary,"#fff"),flex:2,opacity:busy?0.6:1}}>{busy?"…":"Сохранить"}</button>
+        </div>
+      </div>
+    </Modal>}
+  </div>);
+}
+
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App(){
   const [staff,setStaff]      = useState(INIT_STAFF);
@@ -1329,7 +1491,7 @@ export default function App(){
     <div style={{background:C.primary,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
       <div>
         <div style={{fontSize:9,color:"#7BAAC8",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>ZEN GARAGE PHUKET</div>
-        <div style={{fontSize:16,fontWeight:800,color:"#fff",marginTop:1}}>{appTab==="calendar"?"Календарь записи":appTab==="finder"?"Подбор слота":"Настройки команды"}</div>
+        <div style={{fontSize:16,fontWeight:800,color:"#fff",marginTop:1}}>{appTab==="calendar"?"Календарь записи":appTab==="finder"?"Подбор слота":appTab==="clients"?"База клиентов":"Настройки команды"}</div>
         {lastSync&&<div style={{fontSize:8,color:"#5A8AAC",marginTop:1}}>
           {syncing?"⟳ Сохранение...":"✓ Sync "+lastSync.toLocaleTimeString('ru',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}
         </div>}
@@ -1341,7 +1503,7 @@ export default function App(){
           ))}
         </div>}
         <div style={{display:"flex",gap:3,background:"rgba(255,255,255,0.1)",borderRadius:8,padding:3}}>
-          {[["calendar","📅 Календарь"],["finder","🔍 Подбор"],["settings","⚙️ Настройки"]].map(([id,l])=>(
+          {[["calendar","📅 Календарь"],["finder","🔍 Подбор"],["clients","👥 База"],["settings","⚙️ Настройки"]].map(([id,l])=>(
             <button key={id} onClick={()=>setAppTab(id)} style={{padding:"5px 11px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer",borderRadius:6,background:appTab===id?"#fff":"transparent",color:appTab===id?C.primary:"rgba(255,255,255,0.8)"}}>{l}</button>
           ))}
         </div>
@@ -1382,6 +1544,7 @@ export default function App(){
         </div>
       </>)}
       {appTab==="finder"&&<SlotFinder staff={staff} bookings={bookings} onConfirm={confirmMulti}/>}
+      {appTab==="clients"&&<div style={{padding:"12px 16px 30px"}}><ClientBase/></div>}
       {appTab==="settings"&&<StaffSettings staff={staff} setStaff={setStaff}/>}
     </div>
   </div>);
