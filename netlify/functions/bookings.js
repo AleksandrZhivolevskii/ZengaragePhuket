@@ -13,12 +13,24 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// Добавляет колонки связи с базой клиентов (идемпотентно)
+let schemaReady = false;
+async function ensureSchema() {
+  if (schemaReady) return;
+  await pool.query(`
+    ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_id INTEGER;
+    ALTER TABLE bookings ADD COLUMN IF NOT EXISTS car_id INTEGER;
+  `);
+  schemaReady = true;
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: CORS, body: '' };
   }
 
   try {
+    await ensureSchema();
     // ── GET ──────────────────────────────────────────────────────────────
     if (event.httpMethod === 'GET') {
       const params = event.queryStringParameters || {};
@@ -28,7 +40,7 @@ exports.handler = async (event) => {
       const { rows } = await pool.query(`
         SELECT staff_id, slot_id, date::text, client, car, work, status, notes,
                start_h, end_h, dur, color, multi_group, is_continuation,
-               slot_index, total_slots, booking_days
+               slot_index, total_slots, booking_days, client_id, car_id
         FROM bookings
         WHERE date BETWEEN $1 AND $2
         ORDER BY date, start_h
@@ -44,6 +56,7 @@ exports.handler = async (event) => {
           dur: parseFloat(r.dur), color: r.color,
           multiGroup: r.multi_group, isContinuation: r.is_continuation,
           slotIndex: r.slot_index, totalSlots: r.total_slots, bookingDays: r.booking_days,
+          clientId: r.client_id, carId: r.car_id,
         };
       });
 
@@ -67,8 +80,8 @@ exports.handler = async (event) => {
           INSERT INTO bookings
             (staff_id, slot_id, date, client, car, work, status, notes,
              start_h, end_h, dur, color, multi_group, is_continuation,
-             slot_index, total_slots, booking_days)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+             slot_index, total_slots, booking_days, client_id, car_id)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
           ON CONFLICT (staff_id, slot_id, date) DO UPDATE SET
             client=EXCLUDED.client, car=EXCLUDED.car, work=EXCLUDED.work,
             status=EXCLUDED.status, notes=EXCLUDED.notes,
@@ -76,6 +89,7 @@ exports.handler = async (event) => {
             color=EXCLUDED.color, multi_group=EXCLUDED.multi_group,
             is_continuation=EXCLUDED.is_continuation, slot_index=EXCLUDED.slot_index,
             total_slots=EXCLUDED.total_slots, booking_days=EXCLUDED.booking_days,
+            client_id=EXCLUDED.client_id, car_id=EXCLUDED.car_id,
             updated_at=NOW()
         `, [
           staffId, slotId, date,
@@ -83,6 +97,7 @@ exports.handler = async (event) => {
           data.startH||null, data.endH||null, data.dur||null, data.color||null,
           data.multiGroup||null, data.isContinuation||false,
           data.slotIndex||0, data.totalSlots||1, data.bookingDays||1,
+          data.clientId||null, data.carId||null,
         ]);
       }
 

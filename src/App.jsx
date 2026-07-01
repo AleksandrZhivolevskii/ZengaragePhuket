@@ -229,6 +229,8 @@ function SmartBookingModal({staff,startDate,initialSlot,bookings,onConfirm,onClo
   const [step,setStep]=useState(1);
   const [client,setClient]=useState("");
   const [car,setCar]=useState("");
+  const [clientId,setClientId]=useState(null);
+  const [carId,setCarId]=useState(null);
   const [work,setWork]=useState(initialSlot?.label||"ТО");
   const [workOther,setWorkOther]=useState("");
   const [status,setStatus]=useState("confirmed");
@@ -264,7 +266,7 @@ function SmartBookingModal({staff,startDate,initialSlot,bookings,onConfirm,onClo
       day.slots.forEach(sl=>{
         bookData.push({
           key:bKey(staff.id,day.date,sl.id),
-          data:{client,car,work:finalWork,status,notes,
+          data:{client,car,clientId,carId,work:finalWork,status,notes,
             startH:sl.start,dur:sl.end-sl.start,color:sl.color,endH:sl.end,
             multiGroup:grp,isContinuation:globalIdx>0,
             totalSlots,slotIndex:globalIdx,
@@ -305,10 +307,8 @@ function SmartBookingModal({staff,startDate,initialSlot,bookings,onConfirm,onClo
             </select>
             {work==="Другое"&&<input value={workOther} onChange={e=>setWorkOther(e.target.value)} placeholder="Укажите тип" style={{...inp,marginTop:6}}/>}
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            <div>{lb("Клиент *")}<input value={client} onChange={e=>setClient(e.target.value)} placeholder="Имя клиента" style={inp} autoFocus/></div>
-            <div>{lb("Авто")}<input value={car} onChange={e=>setCar(e.target.value)} placeholder="BMW X3..." style={inp}/></div>
-          </div>
+          <ClientCarPicker client={client} car={car} clientId={clientId} carId={carId} inp={inp} autoFocus
+            onChange={p=>{if('client'in p)setClient(p.client);if('car'in p)setCar(p.car);if('clientId'in p)setClientId(p.clientId);if('carId'in p)setCarId(p.carId);}}/>
           <div>{lb("Заметки")}<textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2} style={{...inp,resize:"vertical"}}/></div>
           <div>{lb("Статус")}<div style={{display:"flex",gap:6}}>
             {[["confirmed","✅ Подтверждён",C.green],["pending","⏳ Ожидание",C.amber],["cancelled","❌ Отменён",C.red]].map(([v,l,col])=>(
@@ -447,6 +447,8 @@ function SmartBookingModal({staff,startDate,initialSlot,bookings,onConfirm,onClo
 function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
   const [client,setClient]=useState(existing?.client||"");
   const [car,setCar]=useState(existing?.car||"");
+  const [clientId,setClientId]=useState(existing?.clientId||null);
+  const [carId,setCarId]=useState(existing?.carId||null);
   const [work,setWork]=useState(existing?.work||slot.label);
   const [workOther,setWorkOther]=useState("");
   const [status,setStatus]=useState(existing?.status||"confirmed");
@@ -479,10 +481,8 @@ function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
             </select>
             {work==="Другое"&&<input value={workOther} onChange={e=>setWorkOther(e.target.value)} style={{...inp,marginTop:6}}/>}
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            <div>{lb("Клиент *")}<input value={client} onChange={e=>setClient(e.target.value)} placeholder="Имя клиента" style={inp} autoFocus/></div>
-            <div>{lb("Авто")}<input value={car} onChange={e=>setCar(e.target.value)} placeholder="BMW X3..." style={inp}/></div>
-          </div>
+          <ClientCarPicker client={client} car={car} clientId={clientId} carId={carId} inp={inp} autoFocus
+            onChange={p=>{if('client'in p)setClient(p.client);if('car'in p)setCar(p.car);if('clientId'in p)setClientId(p.clientId);if('carId'in p)setCarId(p.carId);}}/>
           <div>{lb("Заметки")}<textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2} style={{...inp,resize:"vertical"}}/></div>
           <div>{lb("Статус")}<div style={{display:"flex",gap:5}}>
             {[["confirmed","✅ Подтверждён",C.green],["pending","⏳ Ожидание",C.amber],["cancelled","❌ Отменён",C.red]].map(([v,l,col])=>(
@@ -492,7 +492,7 @@ function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
           <div style={{display:"flex",gap:8}}>
             {!!existing&&<button onClick={onDelete} style={{padding:"8px 10px",border:`1px solid ${C.red}`,borderRadius:8,background:"transparent",color:C.red,cursor:"pointer",fontWeight:600}}>🗑</button>}
             <button onClick={onClose} style={{flex:1,padding:"8px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600}}>Отмена</button>
-            <button onClick={()=>{if(!client.trim())return alert("Введите имя");onSave({client,car,work:finalWork,status,notes,startH:slot.start,dur:slot.end-slot.start,color:slot.color,endH:slot.end});}}
+            <button onClick={()=>{if(!client.trim())return alert("Введите имя");onSave({client,car,clientId,carId,work:finalWork,status,notes,startH:slot.start,dur:slot.end-slot.start,color:slot.color,endH:slot.end});}}
               style={{flex:2,padding:"8px 0",border:"none",borderRadius:8,background:C.primary,color:"#fff",cursor:"pointer",fontWeight:700}}>{existing?"Сохранить":"Записать"}</button>
           </div>
         </div>
@@ -793,6 +793,8 @@ function SlotFinder({staff, bookings, onConfirm}) {
   const [wantDate,   setWantDate]   = useState(""); // ISO yyyy-mm-dd, optional
   const [client,     setClient]     = useState("");
   const [car,        setCar]        = useState("");
+  const [clientId,   setClientId]   = useState(null);
+  const [carId,      setCarId]      = useState(null);
   const [work,       setWork]       = useState("ТО");
   const [workOther,  setWorkOther]  = useState("");
   const [status,     setStatus]     = useState("confirmed");
@@ -835,7 +837,7 @@ function SlotFinder({staff, bookings, onConfirm}) {
       day.slots.forEach(sl=>{
         bookData.push({
           key:bKey(selStaff.id,day.date,sl.id),
-          data:{client,car,work:finalWork,status,notes,
+          data:{client,car,clientId,carId,work:finalWork,status,notes,
             startH:sl.start,dur:sl.end-sl.start,color:sl.color,endH:sl.end,
             multiGroup:grp,isContinuation:gi>0,totalSlots:totalSl,slotIndex:gi,bookingDays:plan.length},
         });
@@ -848,7 +850,7 @@ function SlotFinder({staff, bookings, onConfirm}) {
   };
 
   const reset = () => {
-    setResults(null);setConfirmed(false);setClient("");setCar("");setNotes("");
+    setResults(null);setConfirmed(false);setClient("");setCar("");setClientId(null);setCarId(null);setNotes("");
   };
 
   const plan = results?.[chosen];
@@ -912,10 +914,8 @@ function SlotFinder({staff, bookings, onConfirm}) {
             </div>
 
             {/* Клиент + авто */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              <div>{lb("Клиент *")}<input value={client} onChange={e=>setClient(e.target.value)} placeholder="Имя клиента" style={inp}/></div>
-              <div>{lb("Авто")}<input value={car} onChange={e=>setCar(e.target.value)} placeholder="BMW X3..." style={inp}/></div>
-            </div>
+            <ClientCarPicker client={client} car={car} clientId={clientId} carId={carId} inp={inp}
+              onChange={p=>{if('client'in p)setClient(p.client);if('car'in p)setCar(p.car);if('clientId'in p)setClientId(p.clientId);if('carId'in p)setCarId(p.carId);}}/>
 
             {/* Заметки */}
             <div>{lb("Заметки")}<textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2} placeholder="Доп. информация..." style={{...inp,resize:"vertical"}}/></div>
@@ -1226,6 +1226,86 @@ function Modal({title,onClose,children}){
       </div>
       <div style={{padding:16}}>{children}</div>
     </div>
+  </div>);
+}
+
+// Текст машины для отображения в записи
+const carLabel=(cr)=>([cr.make,cr.model].filter(Boolean).join(" ")||cr.plate||"Машина");
+
+// Умный выбор клиента и машины из базы (используется во всех формах записи)
+function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
+  const [dir,setDir]=useState([]);
+  const [open,setOpen]=useState(false);
+  const [addC,setAddC]=useState(null);
+  const [addCar,setAddCar]=useState(null);
+  const [busy,setBusy]=useState(false);
+  const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>{t}</label>;
+  const load=(cb)=>apiGet('/directory').then(r=>{const l=r.clients||[];setDir(l);if(cb)cb(l);}).catch(()=>{});
+  useEffect(()=>{load();},[]);
+  const selClient=dir.find(c=>c.id===clientId);
+  const s=client.trim().toLowerCase();
+  const matches=s?dir.filter(c=>((c.name||"")+" "+(c.phone||"")).toLowerCase().includes(s)):dir;
+  const exact=!!s&&dir.some(c=>(c.name||"").trim().toLowerCase()===s);
+  const cars=selClient?(selClient.cars||[]):[];
+
+  const pickClient=(c)=>{const cs=c.cars||[];const patch={client:c.name,clientId:c.id,car:"",carId:null};if(cs.length===1){patch.car=carLabel(cs[0]);patch.carId=cs[0].id;}onChange(patch);setOpen(false);};
+  const pickCar=(cr)=>onChange({car:carLabel(cr),carId:cr.id});
+  const doAddClient=async()=>{const name=(addC.name||"").trim();if(!name)return alert("Введите имя");setBusy(true);const r=await apiPost('/directory',{op:'upsertClient',client:{name,phone:addC.phone||""}}).catch(()=>null);setBusy(false);if(r&&r.success){load(l=>{const nc=l.find(x=>x.id===r.id);if(nc)pickClient(nc);});setAddC(null);}else alert("Не удалось добавить клиента");};
+  const doAddCar=async()=>{if(!clientId)return;setBusy(true);const r=await apiPost('/directory',{op:'upsertCar',car:{client_id:clientId,make:addCar.make||"",model:addCar.model||"",vin:addCar.vin||"",plate:addCar.plate||""}}).catch(()=>null);setBusy(false);if(r&&r.success){load(l=>{const nc=l.find(x=>x.id===clientId);const cr=nc&&(nc.cars||[]).find(x=>x.id===r.id);if(cr)pickCar(cr);});setAddCar(null);}else alert("Не удалось добавить машину");};
+  const link={fontSize:11,fontWeight:700,color:C.sub,background:"transparent",border:"none",cursor:"pointer",padding:"5px 0",marginTop:2};
+  const ghost={flex:1,padding:"8px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600};
+  const prim={flex:2,padding:"8px 0",border:"none",borderRadius:8,background:C.primary,color:"#fff",cursor:"pointer",fontWeight:700,opacity:busy?0.6:1};
+
+  return(<div style={{display:"flex",flexDirection:"column",gap:10}}>
+    <div style={{position:"relative"}}>
+      {lb("Клиент *")}
+      <input value={client} autoFocus={autoFocus} placeholder="Начните вводить имя…"
+        onChange={e=>onChange({client:e.target.value,clientId:null,car:"",carId:null})}
+        onFocus={()=>setOpen(true)} onBlur={()=>setTimeout(()=>setOpen(false),160)} style={inp}/>
+      {clientId?<div style={{fontSize:10,color:C.green,fontWeight:700,marginTop:2}}>✓ выбран из базы</div>:null}
+      {open&&<div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:60,background:"#fff",border:`1px solid ${C.border}`,borderRadius:8,boxShadow:"0 6px 20px rgba(0,0,0,0.14)",maxHeight:190,overflowY:"auto",marginTop:2}}>
+        {matches.slice(0,40).map(c=>(
+          <div key={c.id} onMouseDown={()=>pickClient(c)} style={{padding:"7px 10px",cursor:"pointer",borderBottom:`1px solid ${C.bg}`}}>
+            <div style={{fontWeight:600,color:C.primary,fontSize:12}}>{c.name}</div>
+            <div style={{fontSize:10,color:C.muted}}>{c.phone||""}{(c.cars||[]).length?`  ·  🚗 ${(c.cars||[]).length}`:""}</div>
+          </div>
+        ))}
+        {s&&!exact&&<div onMouseDown={()=>setAddC({name:client.trim(),phone:""})} style={{padding:"9px 10px",cursor:"pointer",color:C.sub,fontWeight:700,fontSize:12,background:"#F0F7FF"}}>＋ Добавить «{client.trim()}» в базу</div>}
+        {!matches.length&&!s&&<div style={{padding:"9px 10px",fontSize:11,color:C.muted}}>База пуста — введите имя, чтобы добавить</div>}
+      </div>}
+    </div>
+    <div>
+      {lb("Авто")}
+      {clientId?(<div>
+        {cars.length>0?(
+          <select value={carId||""} onChange={e=>{const id=+e.target.value;const cr=cars.find(x=>x.id===id);if(cr)pickCar(cr);}} style={{...inp,cursor:"pointer",background:"#fff"}}>
+            <option value="" disabled>Выберите машину…</option>
+            {cars.map(cr=><option key={cr.id} value={cr.id}>{carLabel(cr)}{cr.plate?` · ${cr.plate}`:""}</option>)}
+          </select>
+        ):<div style={{fontSize:11,color:C.muted}}>У клиента пока нет машин</div>}
+        <button type="button" onClick={()=>setAddCar({make:"",model:"",vin:"",plate:""})} style={link}>＋ Добавить машину</button>
+      </div>):(
+        <input value={car} onChange={e=>onChange({car:e.target.value,carId:null})} placeholder="BMW X3… (или выберите клиента)" style={inp}/>
+      )}
+    </div>
+    {addC&&<Modal title="Новый клиент" onClose={()=>setAddC(null)}>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div><L>Имя *</L><input autoFocus value={addC.name} onChange={e=>setAddC({...addC,name:e.target.value})} style={inp}/></div>
+        <div><L>Телефон</L><input value={addC.phone} onChange={e=>setAddC({...addC,phone:e.target.value})} placeholder="+66…" style={inp}/></div>
+        <div style={{display:"flex",gap:8}}><button onClick={()=>setAddC(null)} style={ghost}>Отмена</button><button onClick={doAddClient} disabled={busy} style={prim}>Добавить</button></div>
+      </div>
+    </Modal>}
+    {addCar&&<Modal title="Новая машина" onClose={()=>setAddCar(null)}>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <div><L>Марка</L><input autoFocus value={addCar.make} onChange={e=>setAddCar({...addCar,make:e.target.value})} placeholder="BMW" style={inp}/></div>
+          <div><L>Модель</L><input value={addCar.model} onChange={e=>setAddCar({...addCar,model:e.target.value})} placeholder="330i" style={inp}/></div>
+        </div>
+        <div><L>VIN</L><input value={addCar.vin} onChange={e=>setAddCar({...addCar,vin:e.target.value})} placeholder="Необязательно" style={inp}/></div>
+        <div><L>Гос. номер</L><input value={addCar.plate} onChange={e=>setAddCar({...addCar,plate:e.target.value})} placeholder="Необязательно" style={inp}/></div>
+        <div style={{display:"flex",gap:8}}><button onClick={()=>setAddCar(null)} style={ghost}>Отмена</button><button onClick={doAddCar} disabled={busy} style={prim}>Добавить</button></div>
+      </div>
+    </Modal>}
   </div>);
 }
 
