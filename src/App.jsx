@@ -1466,37 +1466,56 @@ function JobCard(){
   const [status,setStatus]=useState("draft");
   const [services,setServices]=useState([]);
   const [parts,setParts]=useState([]);
+  const [remarks,setRemarks]=useState("");
   useEffect(()=>{apiGet('/directory').then(r=>setDir(r.clients||[])).catch(()=>{});},[clientId,carId]);
   const selClient=dir.find(c=>c.id===clientId);
   const selCar=selClient&&(selClient.cars||[]).find(x=>x.id===carId);
 
-  const STATUSES=[["draft","📝 Черновик"],["checkin","➡ Приёмка"],["progress","⏳ В работе"],["ready","✅ Готово"],["checkout","📤 Выдача"]];
+  const STATUSES=[["draft","📝 Черновик"],["checkin","➡ Приёмка"],["checkout","📤 Выдача"]];
   const calcRow=r=>{const sub=(+r.qty||0)*(+r.rate||0);return sub-sub*((+r.disc||0)/100);};
   const allRows=[...services,...parts];
   const sumSub=allRows.reduce((a,r)=>a+calcRow(r),0);
-  const vat=sumSub*0.07, total=sumSub+vat;
+  const totalCost=allRows.reduce((a,r)=>a+(+r.cost||0),0);
+  const vat=sumSub*0.07, total=sumSub+vat, profit=sumSub-totalCost;
+  const profitPct=totalCost>0?(profit/totalCost*100):(sumSub>0?100:0);
 
   const th={padding:"8px 10px",fontSize:10,fontWeight:700,textTransform:"uppercase",color:C.muted,whiteSpace:"nowrap"};
   const td={padding:"9px 10px",fontSize:12,color:C.primary,whiteSpace:"nowrap"};
-  const section=(title,icon,rows,onAdd,addLabel)=>(
+  const section=(title,icon,rows,onAdd,addLabel,extra)=>(
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,marginBottom:14,overflow:"hidden"}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:`1px solid ${C.border}`}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:`1px solid ${C.border}`,gap:8,flexWrap:"wrap"}}>
         <div style={{fontWeight:800,color:C.primary,fontSize:14}}>{icon} {title}
           <span style={{marginLeft:8,background:C.sub,color:"#fff",borderRadius:20,padding:"1px 8px",fontSize:11}}>{rows.length}</span></div>
-        <button onClick={onAdd} style={{padding:"7px 14px",fontSize:12,fontWeight:700,border:"none",borderRadius:8,cursor:"pointer",background:C.primary,color:"#fff"}}>＋ {addLabel}</button>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          {extra}
+          <input placeholder="Поиск…" style={{...inp,width:140,padding:"6px 10px"}}/>
+          <button onClick={onAdd} style={{padding:"7px 14px",fontSize:12,fontWeight:700,border:"none",borderRadius:8,cursor:"pointer",background:C.primary,color:"#fff"}}>＋ {addLabel}</button>
+        </div>
       </div>
       <div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",minWidth:640}}>
+        <table style={{width:"100%",borderCollapse:"collapse",minWidth:820}}>
           <thead><tr style={{textAlign:"left",background:C.bg}}>
-            <th style={th}>Позиция</th><th style={th}>Кол-во/ч</th><th style={th}>Ставка</th><th style={th}>Налог</th><th style={th}>Скидка</th><th style={{...th,textAlign:"right"}}>Сумма</th>
+            <th style={{...th,width:28}}></th><th style={th}>Позиция</th><th style={th}>Техник</th><th style={th}>Метки</th>
+            <th style={th}>Кол-во/ч</th><th style={th}>Ставка</th><th style={th}>Налог</th><th style={th}>Скидка</th><th style={{...th,textAlign:"right"}}>Сумма</th>
           </tr></thead>
           <tbody>
-            {rows.length===0?<tr><td colSpan={6} style={{padding:"22px",textAlign:"center",color:C.muted,fontSize:12}}>Пока нет позиций — нажмите «＋ {addLabel}»</td></tr>:
+            {rows.length===0?<tr><td colSpan={9} style={{padding:"22px",textAlign:"center",color:C.muted,fontSize:12}}>Пока нет позиций — нажмите «＋ {addLabel}»</td></tr>:
              rows.map((r,i)=>(<tr key={i} style={{borderTop:`1px solid ${C.border}`}}>
-               <td style={td}><div style={{fontWeight:600}}>{r.item}</div>{r.note&&<div style={{fontSize:10,color:C.muted}}>{r.note}</div>}</td>
+               <td style={{...td,width:28}}><input type="checkbox"/></td>
+               <td style={td}><div style={{fontWeight:700}}>{r.item}</div>
+                 <div style={{fontSize:10,color:C.muted}}>Себест.: {money(r.cost)} · Прибыль: {money(calcRow(r)-(+r.cost||0))}</div>
+                 {r.tag&&<div style={{fontSize:10,color:C.muted}}>🏷 {r.tag}</div>}</td>
+               <td style={{...td,color:C.sub,fontWeight:600,cursor:"pointer"}}>{r.technician||"Назначить"}</td>
+               <td style={td}><span style={{fontSize:11,color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,padding:"2px 8px"}}>＋ Метка</span></td>
                <td style={td}>{r.qty}</td><td style={td}>{money(r.rate)}</td><td style={td}>{r.tax||0}%</td><td style={td}>{r.disc||0}%</td>
                <td style={{...td,textAlign:"right",fontWeight:700}}>{money(calcRow(r))}</td>
              </tr>))}
+            {rows.length>0&&<tr style={{borderTop:`2px solid ${C.border}`,background:C.bg,fontWeight:700}}>
+              <td style={td}></td><td style={td}>Итого</td><td style={td}></td><td style={td}></td>
+              <td style={td}>{rows.reduce((a,r)=>a+(+r.qty||0),0)}</td>
+              <td style={td}>{money(rows.reduce((a,r)=>a+(+r.rate||0),0))}</td><td style={td}></td><td style={td}></td>
+              <td style={{...td,textAlign:"right"}}>{money(rows.reduce((a,r)=>a+calcRow(r),0))}</td>
+            </tr>}
           </tbody>
         </table>
       </div>
@@ -1504,50 +1523,78 @@ function JobCard(){
   );
   const soon=()=>alert("Форму добавления сделаем на следующем шаге 🙂");
 
-  return(<div style={{maxWidth:1000,margin:"0 auto"}}>
-    {/* Шапка */}
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:14}}>
+  return(<div style={{maxWidth:1040,margin:"0 auto"}}>
+    {/* Верхняя панель: номера + дата + иконки */}
+    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:12}}>
       <div>
-        <div style={{fontSize:18,fontWeight:800,color:C.primary}}>Джоб-карта <span style={{color:C.muted,fontWeight:600,fontSize:14}}>(новая)</span></div>
-        <div style={{fontSize:12,color:C.muted,marginTop:2}}>{today().toLocaleDateString("ru",{day:"numeric",month:"long",year:"numeric"})}</div>
+        <div style={{fontSize:17,fontWeight:800,color:C.primary}}>ЗАКАЗ-000001 <span style={{color:C.muted}}>|</span> СМЕТА-000001 <span style={{color:C.sub}}>| СЧЁТ-000001</span></div>
+        <div style={{fontSize:12,color:C.muted,marginTop:3,display:"flex",alignItems:"center",gap:8}}>
+          {today().toLocaleDateString("ru",{day:"numeric",month:"short",year:"numeric"})}
+          <span style={{background:"#EAF7EE",color:C.green,fontWeight:700,fontSize:11,padding:"2px 10px",borderRadius:20}}>Открыта</span>
+        </div>
       </div>
-      <span style={{background:"#EAF7EE",color:C.green,fontWeight:700,fontSize:12,padding:"5px 12px",borderRadius:20}}>● Открыта</span>
+      <div style={{display:"flex",gap:10,fontSize:16}}>{["📋","📦","🔔","📊","📈","⏱","⋯"].map((ic,i)=><span key={i} style={{cursor:"pointer",opacity:0.65}}>{ic}</span>)}</div>
     </div>
 
-    {/* Клиент + машина */}
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:14,marginBottom:14}}>
-      <div style={{fontWeight:800,color:C.primary,fontSize:14,marginBottom:10}}>👤 Клиент и машина</div>
-      <ClientCarPicker client={client} car={car} clientId={clientId} carId={carId} inp={inp}
-        onChange={p=>{if('client'in p)setClient(p.client);if('car'in p)setCar(p.car);if('clientId'in p)setClientId(p.clientId);if('carId'in p)setCarId(p.carId);}}/>
-      {(selClient||selCar)&&<div style={{marginTop:12,display:"flex",gap:10,flexWrap:"wrap"}}>
-        {selClient&&<div style={{flex:1,minWidth:200,background:C.bg,borderRadius:8,padding:"10px 12px"}}>
-          <div style={{fontSize:13,fontWeight:700,color:C.primary}}>{selClient.name}</div>
-          <div style={{fontSize:11,color:C.muted,marginTop:2}}>{selClient.phone?`📞 ${selClient.phone}`:"телефон не указан"}{selClient.messenger?`  ·  💬 ${selClient.messenger}`:""}</div>
+    {/* Клиент / машина / адреса + ремарки */}
+    <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:14}}>
+      <div style={{flex:"1 1 340px",minWidth:280,display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:12}}>
+          <ClientCarPicker client={client} car={car} clientId={clientId} carId={carId} inp={inp}
+            onChange={p=>{if('client'in p)setClient(p.client);if('car'in p)setCar(p.car);if('clientId'in p)setClientId(p.clientId);if('carId'in p)setCarId(p.carId);}}/>
+        </div>
+        {selClient&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:36,height:36,borderRadius:10,background:C.sub,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>👤</div>
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:700,color:C.sub}}>{selClient.name}</div>
+            <div style={{fontSize:11,color:C.muted}}>{selClient.phone?`📞 ${selClient.phone}`:"телефон не указан"}{selClient.messenger?`  ·  💬 ${selClient.messenger}`:""}</div></div>
         </div>}
-        {selCar&&<div style={{flex:1,minWidth:200,background:C.bg,borderRadius:8,padding:"10px 12px"}}>
-          <div style={{fontSize:13,fontWeight:700,color:C.primary}}>🚗 {[selCar.make,selCar.model].filter(Boolean).join(" ")||"Машина"}</div>
-          <div style={{fontSize:11,color:C.muted,marginTop:2}}>{selCar.plate?`№ ${selCar.plate}`:""}{selCar.plate&&selCar.vin?"  ·  ":""}{selCar.vin?`VIN ${selCar.vin}`:""}</div>
+        {selCar&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:36,height:36,borderRadius:10,background:"#D9D6F5",color:"#26215C",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🚗</div>
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:700,color:C.primary}}>{[selCar.make,selCar.model].filter(Boolean).join(" ")||"Машина"}</div>
+            <div style={{fontSize:11,color:C.muted}}>{selCar.plate?`Номер: ${selCar.plate}   `:""}{selCar.vin?`VIN: ${selCar.vin}`:""}</div></div>
         </div>}
-      </div>}
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:16}}>📍</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>Адрес счёта</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Пхукет, 83000":"не указан"}</div></div>
+        </div>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:16}}>🚚</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>Адрес доставки</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Пхукет, 83000":"не указан"}</div></div>
+        </div>
+      </div>
+      <div style={{flex:"1 1 300px",minWidth:260}}>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:12,height:"100%",boxSizing:"border-box"}}>
+          <div style={{fontSize:13,fontWeight:800,color:C.primary,marginBottom:8}}>📝 Ремарки клиента и рекомендации</div>
+          <textarea value={remarks} onChange={e=>setRemarks(e.target.value)} rows={7} placeholder="Пожелания клиента, рекомендации сервиса, инструкции…" style={{...inp,resize:"vertical"}}/>
+        </div>
+      </div>
     </div>
 
     {/* Статусы */}
-    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-      {STATUSES.map(([id,l])=>(
-        <button key={id} onClick={()=>setStatus(id)}
-          style={{padding:"8px 14px",borderRadius:20,border:`1.5px solid ${status===id?C.primary:C.border}`,background:status===id?C.primary:C.card,color:status===id?"#fff":C.muted,fontSize:12,fontWeight:700,cursor:"pointer"}}>{l}</button>
-      ))}
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:16}}>
+      {STATUSES.map(([id,l],i)=>(<span key={id} style={{display:"flex",alignItems:"center",gap:6}}>
+        {i>0&&<span style={{color:C.muted}}>›</span>}
+        <button onClick={()=>setStatus(id)} style={{padding:"8px 16px",borderRadius:20,border:`1.5px solid ${status===id?C.primary:C.border}`,background:status===id?C.primary:C.card,color:status===id?"#fff":C.muted,fontSize:12,fontWeight:700,cursor:"pointer"}}>{l}</button>
+      </span>))}
     </div>
 
     {/* Услуги и запчасти */}
-    {section("Услуги","🛠",services,soon,"Услуга")}
+    {section("Услуги","🛠",services,soon,"Услуга",<span style={{background:C.red,color:"#fff",fontSize:11,fontWeight:700,borderRadius:20,padding:"3px 10px"}}>Авторизации 1</span>)}
     {section("Запчасти","🔩",parts,soon,"Запчасть")}
 
-    {/* Итоги */}
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,maxWidth:360,marginLeft:"auto"}}>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:8}}><span style={{color:C.muted}}>Итого (без НДС)</span><b style={{color:C.primary}}>{money(sumSub)}</b></div>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:8}}><span style={{color:C.muted}}>НДС 7%</span><span style={{color:C.primary}}>{money(vat)}</span></div>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:800,paddingTop:8,borderTop:`1px solid ${C.border}`}}><span style={{color:C.primary}}>Всего</span><span style={{color:C.primary}}>{money(total)}</span></div>
+    {/* Итоги как в референсе */}
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,maxWidth:380,marginLeft:"auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:14,marginBottom:8}}><span style={{color:C.muted}}>Authorised (сумма)</span><b style={{color:C.primary}}>{money(sumSub)}</b></div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:8,paddingLeft:8,borderLeft:`2px solid ${C.border}`}}><span style={{color:C.muted}}>НДС [7%]</span><span style={{color:C.muted}}>{money(vat)}</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:800,paddingTop:8,borderTop:`1px solid ${C.border}`,marginBottom:12}}><span style={{color:C.primary}}>Всего</span><span style={{color:C.primary}}>{money(total)}</span></div>
+      <div style={{display:"flex",gap:8}}>
+        <div style={{flex:1,background:"#FEF3CD",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:10,color:"#8A6D00",fontWeight:700}}>🛒 Себестоимость</div><div style={{fontSize:14,fontWeight:800,color:"#8A6D00"}}>{money(totalCost)}</div></div>
+        <div style={{flex:1,background:"#E6F6E9",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:10,color:C.green,fontWeight:700}}>📈 Прибыль ({profitPct.toFixed(0)}%)</div><div style={{fontSize:14,fontWeight:800,color:C.green}}>{money(profit)}</div></div>
+      </div>
+    </div>
+
+    {/* Нижняя панель: Оплатить */}
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:16,padding:"12px 4px",flexWrap:"wrap",gap:10}}>
+      <div style={{fontSize:13,color:C.muted,fontWeight:600}}>💵 Оплата по счёту</div>
+      <button onClick={()=>alert("Приём оплаты сделаем на следующем шаге 🙂")} style={{padding:"11px 28px",fontSize:14,fontWeight:800,border:"none",borderRadius:10,cursor:"pointer",background:C.primary,color:"#fff"}}>Оплатить</button>
     </div>
   </div>);
 }
