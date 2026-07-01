@@ -22,6 +22,9 @@ async function ensureSchema() {
     ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone      VARCHAR(50);
     ALTER TABLE clients ADD COLUMN IF NOT EXISTS messenger  VARCHAR(120);
     ALTER TABLE clients ADD COLUMN IF NOT EXISTS note       TEXT;
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS type            VARCHAR(20) DEFAULT 'individual';
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS tax_number      VARCHAR(80);
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS company_address TEXT;
     ALTER TABLE clients ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
     ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
     CREATE TABLE IF NOT EXISTS cars (id SERIAL PRIMARY KEY, client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE);
@@ -43,7 +46,9 @@ exports.handler = async (event) => {
     // ── GET: все клиенты с машинами ──────────────────────────────────────────
     if (event.httpMethod === 'GET') {
       const clients = (await pool.query(
-        'SELECT id, name, phone, messenger, note FROM clients ORDER BY name'
+        `SELECT id, name, phone, messenger, note, type,
+                tax_number AS "taxNumber", company_address AS "companyAddress"
+         FROM clients ORDER BY name`
       )).rows;
       const cars = (await pool.query(
         'SELECT id, client_id, make, model, vin, plate FROM cars ORDER BY id'
@@ -68,16 +73,17 @@ exports.handler = async (event) => {
         if (!c.name || !c.name.trim()) {
           return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'name required' }) };
         }
+        const typ = c.type === 'company' ? 'company' : 'individual';
         let id = c.id;
         if (id) {
           await pool.query(
-            'UPDATE clients SET name=$1, phone=$2, messenger=$3, note=$4, updated_at=NOW() WHERE id=$5',
-            [c.name, c.phone || null, c.messenger || null, c.note || null, id]
+            'UPDATE clients SET name=$1, phone=$2, messenger=$3, note=$4, type=$5, tax_number=$6, company_address=$7, updated_at=NOW() WHERE id=$8',
+            [c.name, c.phone || null, c.messenger || null, c.note || null, typ, c.taxNumber || null, c.companyAddress || null, id]
           );
         } else {
           id = (await pool.query(
-            'INSERT INTO clients (name, phone, messenger, note) VALUES ($1,$2,$3,$4) RETURNING id',
-            [c.name, c.phone || null, c.messenger || null, c.note || null]
+            'INSERT INTO clients (name, phone, messenger, note, type, tax_number, company_address) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+            [c.name, c.phone || null, c.messenger || null, c.note || null, typ, c.taxNumber || null, c.companyAddress || null]
           )).rows[0].id;
         }
         return { statusCode: 200, headers: CORS, body: JSON.stringify({ success: true, id }) };
@@ -124,8 +130,8 @@ exports.handler = async (event) => {
           for (const cl of rows) {
             if (!cl.name || !cl.name.trim()) continue;
             const cid = (await client.query(
-              'INSERT INTO clients (name, phone, messenger, note) VALUES ($1,$2,$3,$4) RETURNING id',
-              [cl.name, cl.phone || null, cl.messenger || null, cl.note || null]
+              'INSERT INTO clients (name, phone, messenger, note, type, tax_number, company_address) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+              [cl.name, cl.phone || null, cl.messenger || null, cl.note || null, cl.type === 'company' ? 'company' : 'individual', cl.taxNumber || null, cl.companyAddress || null]
             )).rows[0].id;
             for (const car of (cl.cars || [])) {
               if (!car.make && !car.model && !car.vin && !car.plate) continue;
