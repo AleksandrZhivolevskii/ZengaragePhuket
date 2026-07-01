@@ -1456,6 +1456,102 @@ function ClientBase(){
   </div>);
 }
 
+// ── JOB CARD (шаг 1: каркас) ─────────────────────────────────────────────────
+const money=n=>"THB "+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+function JobCard(){
+  const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:12,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
+  const [dir,setDir]=useState([]);
+  const [client,setClient]=useState(""),[car,setCar]=useState("");
+  const [clientId,setClientId]=useState(null),[carId,setCarId]=useState(null);
+  const [status,setStatus]=useState("draft");
+  const [services,setServices]=useState([]);
+  const [parts,setParts]=useState([]);
+  useEffect(()=>{apiGet('/directory').then(r=>setDir(r.clients||[])).catch(()=>{});},[clientId,carId]);
+  const selClient=dir.find(c=>c.id===clientId);
+  const selCar=selClient&&(selClient.cars||[]).find(x=>x.id===carId);
+
+  const STATUSES=[["draft","📝 Черновик"],["checkin","➡ Приёмка"],["progress","⏳ В работе"],["ready","✅ Готово"],["checkout","📤 Выдача"]];
+  const calcRow=r=>{const sub=(+r.qty||0)*(+r.rate||0);return sub-sub*((+r.disc||0)/100);};
+  const allRows=[...services,...parts];
+  const sumSub=allRows.reduce((a,r)=>a+calcRow(r),0);
+  const vat=sumSub*0.07, total=sumSub+vat;
+
+  const th={padding:"8px 10px",fontSize:10,fontWeight:700,textTransform:"uppercase",color:C.muted,whiteSpace:"nowrap"};
+  const td={padding:"9px 10px",fontSize:12,color:C.primary,whiteSpace:"nowrap"};
+  const section=(title,icon,rows,onAdd,addLabel)=>(
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,marginBottom:14,overflow:"hidden"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:`1px solid ${C.border}`}}>
+        <div style={{fontWeight:800,color:C.primary,fontSize:14}}>{icon} {title}
+          <span style={{marginLeft:8,background:C.sub,color:"#fff",borderRadius:20,padding:"1px 8px",fontSize:11}}>{rows.length}</span></div>
+        <button onClick={onAdd} style={{padding:"7px 14px",fontSize:12,fontWeight:700,border:"none",borderRadius:8,cursor:"pointer",background:C.primary,color:"#fff"}}>＋ {addLabel}</button>
+      </div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",minWidth:640}}>
+          <thead><tr style={{textAlign:"left",background:C.bg}}>
+            <th style={th}>Позиция</th><th style={th}>Кол-во/ч</th><th style={th}>Ставка</th><th style={th}>Налог</th><th style={th}>Скидка</th><th style={{...th,textAlign:"right"}}>Сумма</th>
+          </tr></thead>
+          <tbody>
+            {rows.length===0?<tr><td colSpan={6} style={{padding:"22px",textAlign:"center",color:C.muted,fontSize:12}}>Пока нет позиций — нажмите «＋ {addLabel}»</td></tr>:
+             rows.map((r,i)=>(<tr key={i} style={{borderTop:`1px solid ${C.border}`}}>
+               <td style={td}><div style={{fontWeight:600}}>{r.item}</div>{r.note&&<div style={{fontSize:10,color:C.muted}}>{r.note}</div>}</td>
+               <td style={td}>{r.qty}</td><td style={td}>{money(r.rate)}</td><td style={td}>{r.tax||0}%</td><td style={td}>{r.disc||0}%</td>
+               <td style={{...td,textAlign:"right",fontWeight:700}}>{money(calcRow(r))}</td>
+             </tr>))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+  const soon=()=>alert("Форму добавления сделаем на следующем шаге 🙂");
+
+  return(<div style={{maxWidth:1000,margin:"0 auto"}}>
+    {/* Шапка */}
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:14}}>
+      <div>
+        <div style={{fontSize:18,fontWeight:800,color:C.primary}}>Джоб-карта <span style={{color:C.muted,fontWeight:600,fontSize:14}}>(новая)</span></div>
+        <div style={{fontSize:12,color:C.muted,marginTop:2}}>{today().toLocaleDateString("ru",{day:"numeric",month:"long",year:"numeric"})}</div>
+      </div>
+      <span style={{background:"#EAF7EE",color:C.green,fontWeight:700,fontSize:12,padding:"5px 12px",borderRadius:20}}>● Открыта</span>
+    </div>
+
+    {/* Клиент + машина */}
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:14,marginBottom:14}}>
+      <div style={{fontWeight:800,color:C.primary,fontSize:14,marginBottom:10}}>👤 Клиент и машина</div>
+      <ClientCarPicker client={client} car={car} clientId={clientId} carId={carId} inp={inp}
+        onChange={p=>{if('client'in p)setClient(p.client);if('car'in p)setCar(p.car);if('clientId'in p)setClientId(p.clientId);if('carId'in p)setCarId(p.carId);}}/>
+      {(selClient||selCar)&&<div style={{marginTop:12,display:"flex",gap:10,flexWrap:"wrap"}}>
+        {selClient&&<div style={{flex:1,minWidth:200,background:C.bg,borderRadius:8,padding:"10px 12px"}}>
+          <div style={{fontSize:13,fontWeight:700,color:C.primary}}>{selClient.name}</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:2}}>{selClient.phone?`📞 ${selClient.phone}`:"телефон не указан"}{selClient.messenger?`  ·  💬 ${selClient.messenger}`:""}</div>
+        </div>}
+        {selCar&&<div style={{flex:1,minWidth:200,background:C.bg,borderRadius:8,padding:"10px 12px"}}>
+          <div style={{fontSize:13,fontWeight:700,color:C.primary}}>🚗 {[selCar.make,selCar.model].filter(Boolean).join(" ")||"Машина"}</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:2}}>{selCar.plate?`№ ${selCar.plate}`:""}{selCar.plate&&selCar.vin?"  ·  ":""}{selCar.vin?`VIN ${selCar.vin}`:""}</div>
+        </div>}
+      </div>}
+    </div>
+
+    {/* Статусы */}
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+      {STATUSES.map(([id,l])=>(
+        <button key={id} onClick={()=>setStatus(id)}
+          style={{padding:"8px 14px",borderRadius:20,border:`1.5px solid ${status===id?C.primary:C.border}`,background:status===id?C.primary:C.card,color:status===id?"#fff":C.muted,fontSize:12,fontWeight:700,cursor:"pointer"}}>{l}</button>
+      ))}
+    </div>
+
+    {/* Услуги и запчасти */}
+    {section("Услуги","🛠",services,soon,"Услуга")}
+    {section("Запчасти","🔩",parts,soon,"Запчасть")}
+
+    {/* Итоги */}
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,maxWidth:360,marginLeft:"auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:8}}><span style={{color:C.muted}}>Итого (без НДС)</span><b style={{color:C.primary}}>{money(sumSub)}</b></div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:8}}><span style={{color:C.muted}}>НДС 7%</span><span style={{color:C.primary}}>{money(vat)}</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:800,paddingTop:8,borderTop:`1px solid ${C.border}`}}><span style={{color:C.primary}}>Всего</span><span style={{color:C.primary}}>{money(total)}</span></div>
+    </div>
+  </div>);
+}
+
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App(){
   const [staff,setStaff]      = useState(INIT_STAFF);
@@ -1571,7 +1667,7 @@ export default function App(){
     <div style={{background:C.primary,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
       <div>
         <div style={{fontSize:9,color:"#7BAAC8",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>ZEN GARAGE PHUKET</div>
-        <div style={{fontSize:16,fontWeight:800,color:"#fff",marginTop:1}}>{appTab==="calendar"?"Календарь записи":appTab==="finder"?"Подбор слота":appTab==="clients"?"База клиентов":"Настройки команды"}</div>
+        <div style={{fontSize:16,fontWeight:800,color:"#fff",marginTop:1}}>{appTab==="calendar"?"Календарь записи":appTab==="finder"?"Подбор слота":appTab==="jobcard"?"Джоб-карта":appTab==="clients"?"База клиентов":"Настройки команды"}</div>
         {lastSync&&<div style={{fontSize:8,color:"#5A8AAC",marginTop:1}}>
           {syncing?"⟳ Сохранение...":"✓ Sync "+lastSync.toLocaleTimeString('ru',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}
         </div>}
@@ -1583,7 +1679,7 @@ export default function App(){
           ))}
         </div>}
         <div style={{display:"flex",gap:3,background:"rgba(255,255,255,0.1)",borderRadius:8,padding:3}}>
-          {[["calendar","📅 Календарь"],["finder","🔍 Подбор"],["clients","👥 База"],["settings","⚙️ Настройки"]].map(([id,l])=>(
+          {[["calendar","📅 Календарь"],["finder","🔍 Подбор"],["jobcard","🧾 Джоб-карт"],["clients","👥 База"],["settings","⚙️ Настройки"]].map(([id,l])=>(
             <button key={id} onClick={()=>setAppTab(id)} style={{padding:"5px 11px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer",borderRadius:6,background:appTab===id?"#fff":"transparent",color:appTab===id?C.primary:"rgba(255,255,255,0.8)"}}>{l}</button>
           ))}
         </div>
@@ -1624,6 +1720,7 @@ export default function App(){
         </div>
       </>)}
       {appTab==="finder"&&<SlotFinder staff={staff} bookings={bookings} onConfirm={confirmMulti}/>}
+      {appTab==="jobcard"&&<div style={{padding:"12px 16px 30px"}}><JobCard/></div>}
       {appTab==="clients"&&<div style={{padding:"12px 16px 30px"}}><ClientBase/></div>}
       {appTab==="settings"&&<StaffSettings staff={staff} setStaff={setStaff}/>}
     </div>
