@@ -224,89 +224,139 @@ function findBookingOptions(staff, startDate, neededHours, bookings) {
   return options;
 }
 
+// ── ЦЕПОЧКА МАСТЕРОВ (последовательно) ────────────────────────────────────────
+// В свободных слотах дня ищет непрерывный «пробег» рабочих слотов на need часов,
+// начинающийся не раньше minStart. used — ключи уже занятых цепочкой слотов.
+function findRun(free, need, minStart, used){
+  const eff=free.filter(s=>s.eff&&!used.has(s.key)).sort((a,b)=>a.start-b.start);
+  for(let i=0;i<eff.length;i++){
+    if(eff[i].start<minStart-1e-9)continue;
+    let sum=0;const run=[];let prevEnd=null;
+    for(let j=i;j<eff.length;j++){
+      if(prevEnd!==null&&Math.abs(eff[j].start-prevEnd)>1e-9)break;
+      run.push(eff[j]);sum+=eff[j].end-eff[j].start;prevEnd=eff[j].end;
+      if(sum+1e-9>=need)return{slots:run,startH:run[0].start,endH:run[run.length-1].end};
+    }
+  }
+  return null;
+}
+// steps=[{staffId,work,hours}] → расписание [{staffId,staff,work,hours,date,slots,startH,endH}] или null
+function findChain(steps, startDate, bookings, staffList, maxGapH=6, maxScan=120){
+  const schedule=[];const used=new Set();let cursor=null; // {date,endH}
+  for(const step of steps){
+    const staff=staffList.find(s=>s.id===step.staffId);
+    if(!staff)return null;
+    const need=step.hours;let placed=null;
+    const base=cursor?cursor.date:startDate;
+    for(let off=0;off<maxScan;off++){
+      const day=addDays(base,off);
+      const dow=(day.getDay()+6)%7+1;
+      if(!staff.workDays.includes(dow))continue;
+      const free=getFreeSlotsForDay(staff,day,bookings);
+      if(!free.length)continue;
+      const sameDay=cursor&&isSameDay(day,cursor.date);
+      const minStart=sameDay?cursor.endH:DAY_START;
+      const run=findRun(free,need,minStart,used);
+      if(!run)continue;
+      if(sameDay&&(run.startH-cursor.endH)>maxGapH+1e-9)continue; // пауза больше лимита → следующий день
+      placed={date:day,slots:run.slots,startH:run.startH,endH:run.endH};
+      break;
+    }
+    if(!placed)return null;
+    placed.slots.forEach(sl=>used.add(bKey(step.staffId,placed.date,sl.id)));
+    schedule.push({staffId:step.staffId,staff,work:step.work,hours:need,date:placed.date,slots:placed.slots,startH:placed.startH,endH:placed.endH});
+    cursor={date:placed.date,endH:placed.endH};
+  }
+  return schedule;
+}
+// Расписание цепочки → массив броней для confirmMulti
+function chainToBookData(schedule, base){
+  const grp=uid();const total=schedule.reduce((a,st)=>a+st.slots.length,0);
+  const days=new Set(schedule.map(st=>dayKey(st.date))).size;
+  let gi=0;const out=[];
+  schedule.forEach(st=>{
+    st.slots.forEach(sl=>{
+      out.push({key:bKey(st.staffId,st.date,sl.id),data:{
+        ...base,work:st.work,startH:sl.start,dur:sl.end-sl.start,color:sl.color,endH:sl.end,
+        multiGroup:grp,isContinuation:gi>0,totalSlots:total,slotIndex:gi,bookingDays:days,
+      }});
+      gi++;
+    });
+  });
+  return out;
+}
+
 // ── SMART BOOKING MODAL ───────────────────────────────────────────────────────
-function SmartBookingModal({staff,startDate,initialSlot,bookings,onConfirm,onClose}){
+function ChainSteps({allStaff, steps, setSteps, inp, lb}){
+  const add=()=>setSteps([...steps,{staffId:(allStaff[0]||{}).id,work:"ТО",hours:1.5}]);
+  const upd=(i,p)=>setSteps(steps.map((s,j)=>j===i?{...s,...p}:s));
+  const rm=(i)=>setSteps(steps.filter((_,j)=>j!==i));
+  return(<div>
+    {lb&&lb("Мастера и работы (по порядку)")}
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {steps.map((st,i)=>(
+        <div key={i} style={{background:"#F7FAFD",border:`1px solid ${C.border}`,borderRadius:8,padding:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+            <span style={{fontSize:11,fontWeight:800,color:C.sub}}>{i+1}.</span>
+            <select value={st.staffId} onChange={e=>upd(i,{staffId:e.target.value})} style={{...inp,flex:1,cursor:"pointer",background:"#fff"}}>
+              {allStaff.map(s=><option key={s.id} value={s.id}>{s.emoji} {s.name}</option>)}
+            </select>
+            {steps.length>1&&<button type="button" onClick={()=>rm(i)} style={{border:"none",background:"transparent",color:C.red,cursor:"pointer",fontSize:15,padding:"0 4px"}}>✕</button>}
+          </div>
+          <div style={{display:"flex",gap:6}}>
+            <select value={st.work} onChange={e=>upd(i,{work:e.target.value})} style={{...inp,flex:2,cursor:"pointer",background:"#fff"}}>
+              {WORK_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+            </select>
+            <select value={st.hours} onChange={e=>upd(i,{hours:+e.target.value})} style={{...inp,flex:1,cursor:"pointer",background:"#FFFBEF",fontWeight:700}}>
+              {DURATIONS.filter(d=>d<=8).map(d=><option key={d} value={d}>{d<1?d*60+" мин":d+" ч"}</option>)}
+            </select>
+          </div>
+        </div>
+      ))}
+    </div>
+    <button type="button" onClick={add} style={{marginTop:8,width:"100%",padding:"8px",border:`1.5px dashed ${C.sub}`,borderRadius:8,background:"transparent",color:C.sub,fontWeight:700,fontSize:12,cursor:"pointer"}}>＋ Добавить мастера</button>
+  </div>);
+}
+
+function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConfirm,onClose}){
+  const list=allStaff||[staff];
   const [step,setStep]=useState(1);
+  const [steps,setSteps]=useState([{staffId:staff.id,work:initialSlot?.label||"ТО",hours:initialSlot?(initialSlot.end-initialSlot.start):1.5}]);
   const [client,setClient]=useState("");
   const [car,setCar]=useState("");
   const [clientId,setClientId]=useState(null);
   const [carId,setCarId]=useState(null);
-  const [work,setWork]=useState(initialSlot?.label||"ТО");
-  const [workOther,setWorkOther]=useState("");
   const [status,setStatus]=useState("confirmed");
   const [notes,setNotes]=useState("");
-  const [neededH,setNeededH]=useState(initialSlot?(initialSlot.end-initialSlot.start):1.5);
-  const [options,setOptions]=useState(null);
-  const [chosen,setChosen]=useState(0);
+  const [schedule,setSchedule]=useState(null);
   const [searching,setSearching]=useState(false);
 
   const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:12,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
   const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>{t}</label>;
-  const finalWork=work==="Другое"?workOther:work;
-
   const doSearch=()=>{
     if(!client.trim())return alert("Введите имя клиента");
     setSearching(true);
     setTimeout(()=>{
-      // Multi-day: returns array of options, each option = [{date, slots, effH, bufH}, ...]
-      const res=findBookingOptions(staff,startDate,neededH,bookings);
-      setOptions(res);setChosen(0);setSearching(false);setStep(2);
+      const sch=findChain(steps,startDate,bookings,list);
+      setSearching(false);
+      if(!sch){alert("Не удалось построить цепочку в ближайшие ~4 месяца. Попробуйте меньше времени/этапов или другую дату.");return;}
+      setSchedule(sch);setStep(2);
     },200);
   };
-
-  const doConfirm=()=>{
-    if(!options||!options[chosen])return;
-    const plan=options[chosen]; // [{date, slots, effH, bufH}, ...]
-    const grp=uid();
-    // Flatten all slots across all days, track global index
-    let globalIdx=0;
-    const totalSlots=plan.reduce((a,d)=>a+d.slots.length,0);
-    const bookData=[];
-    plan.forEach(day=>{
-      day.slots.forEach(sl=>{
-        bookData.push({
-          key:bKey(staff.id,day.date,sl.id),
-          data:{client,car,clientId,carId,work:finalWork,status,notes,
-            startH:sl.start,dur:sl.end-sl.start,color:sl.color,endH:sl.end,
-            multiGroup:grp,isContinuation:globalIdx>0,
-            totalSlots,slotIndex:globalIdx,
-            bookingDays:plan.length,
-          },
-        });
-        globalIdx++;
-      });
-    });
-    onConfirm(bookData);
-  };
+  const doConfirm=()=>{if(schedule)onConfirm(chainToBookData(schedule,{client,car,clientId,carId,status,notes}));};
 
   if(step===1)return(
     <div style={{position:"fixed",inset:0,background:"rgba(26,63,92,0.55)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:12,overflowY:"auto"}}>
       <div style={{background:C.card,borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 8px 40px rgba(26,63,92,0.25)",overflow:"hidden",margin:"auto"}}>
         <div style={{background:staff.color,padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
-            <div style={{fontWeight:800,fontSize:14,color:staff.textColor}}>{staff.emoji} {staff.name}</div>
-            <div style={{fontSize:11,color:staff.textColor,opacity:0.8}}>Система подберёт слоты автоматически</div>
+            <div style={{fontWeight:800,fontSize:14,color:staff.textColor}}>🔧 Запись — цепочка мастеров</div>
+            <div style={{fontSize:11,color:staff.textColor,opacity:0.8}}>Этапы встанут во времени друг за другом</div>
           </div>
           <button onClick={onClose} style={{background:"rgba(0,0,0,0.12)",border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",color:staff.textColor}}>×</button>
         </div>
         <div style={{padding:16,display:"flex",flexDirection:"column",gap:11}}>
-          <div style={{background:"#F0F7FF",borderRadius:8,padding:"10px 12px",border:`1.5px solid ${C.sub}44`}}>
-            {lb("⏱ Время на работу")}
-            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-              <select value={neededH} onChange={e=>setNeededH(+e.target.value)}
-                style={{...inp,fontWeight:700,fontSize:14,background:"#FFFBEF",borderColor:"#FBC84A",width:"auto",flex:1}}>
-                {DURATIONS.map(d=><option key={d} value={d}>{d<1?d*60+" мин":d<=8?d+" ч":d<=24?d+" ч ("+Math.round(d/8)+" дн.)":d+" ч ("+Math.ceil(d/8)+" дн.)"}</option>)}
-              </select>
-              <div style={{fontSize:11,color:C.muted,lineHeight:1.4}}>Система найдёт ближайшую дату<br/>с подходящими слотами</div>
-            </div>
-          </div>
-          <div>{lb("Тип работы")}
-            <select value={work} onChange={e=>setWork(e.target.value)} style={{...inp,background:"#fff",cursor:"pointer"}}>
-              {WORK_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
-              <option value="Другое">Другое...</option>
-            </select>
-            {work==="Другое"&&<input value={workOther} onChange={e=>setWorkOther(e.target.value)} placeholder="Укажите тип" style={{...inp,marginTop:6}}/>}
-          </div>
+          <ChainSteps allStaff={list} steps={steps} setSteps={setSteps} inp={inp} lb={lb}/>
           <ClientCarPicker client={client} car={car} clientId={clientId} carId={carId} inp={inp} autoFocus
             onChange={p=>{if('client'in p)setClient(p.client);if('car'in p)setCar(p.car);if('clientId'in p)setClientId(p.clientId);if('carId'in p)setCarId(p.carId);}}/>
           <div>{lb("Заметки")}<textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2} style={{...inp,resize:"vertical"}}/></div>
@@ -327,116 +377,41 @@ function SmartBookingModal({staff,startDate,initialSlot,bookings,onConfirm,onClo
     </div>
   );
 
-  const plan=options?.[chosen]; // [{date,slots,effH,bufH},...]
-  const planDays=plan?.length||0;
-  const planTotalEff=plan?.reduce((a,d)=>a+d.effH,0)||0;
-  const planTotalBuf=plan?.reduce((a,d)=>a+d.bufH,0)||0;
-  const planTotalSlots=plan?.reduce((a,d)=>a+d.slots.length,0)||0;
-
+  const days=schedule?new Set(schedule.map(s=>dayKey(s.date))).size:0;
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(26,63,92,0.55)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:12,overflowY:"auto"}}>
-      <div style={{background:C.card,borderRadius:16,width:"100%",maxWidth:560,boxShadow:"0 8px 40px rgba(26,63,92,0.25)",overflow:"hidden",margin:"auto"}}>
+      <div style={{background:C.card,borderRadius:16,width:"100%",maxWidth:520,boxShadow:"0 8px 40px rgba(26,63,92,0.25)",overflow:"hidden",margin:"auto"}}>
         <div style={{background:C.primary,padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
-            <div style={{fontWeight:800,fontSize:14,color:"#fff"}}>{staff.emoji} {staff.name} · {client}</div>
-            <div style={{fontSize:11,color:"#9BB8D0",marginTop:1}}>{finalWork} · {fmtH(neededH)} · {car}</div>
+            <div style={{fontWeight:800,fontSize:14,color:"#fff"}}>{client}{car?` · ${car}`:""}</div>
+            <div style={{fontSize:11,color:"#9BB8D0",marginTop:1}}>Цепочка: {schedule?.length} этап(ов) · {days} дн.</div>
           </div>
           <button onClick={onClose} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:18,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
         </div>
         <div style={{padding:16,maxHeight:"75vh",overflowY:"auto"}}>
-          {!options||options.length===0?(
-            <div style={{textAlign:"center",padding:20,color:C.muted}}>
-              <div style={{fontSize:24,marginBottom:8}}>😔</div>
-              <div style={{fontWeight:700,color:C.primary,marginBottom:6}}>Нет доступных слотов</div>
-              <div style={{fontSize:12}}>В ближайшие 60 дней не удаётся набрать {fmtH(neededH)} у {staff.name}.</div>
-              <button onClick={()=>setStep(1)} style={{marginTop:14,padding:"8px 20px",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600}}>← Изменить время</button>
-            </div>
-          ):(<>
-            <div style={{fontSize:12,fontWeight:700,color:C.primary,marginBottom:8}}>
-              Найдено {options.length} вариант{options.length>1?"а":""} — выберите:
-            </div>
-            {/* Option cards */}
-            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
-              {options.map((opt,i)=>{
-                const isCh=chosen===i;
-                const totalEff=opt.reduce((a,d)=>a+d.effH,0);
-                const totalBuf=opt.reduce((a,d)=>a+d.bufH,0);
-                const totalSl=opt.reduce((a,d)=>a+d.slots.length,0);
-                const firstDate=opt[0].date.toLocaleDateString("ru",{weekday:"short",day:"numeric",month:"long"});
-                const lastDate=opt[opt.length-1].date.toLocaleDateString("ru",{day:"numeric",month:"long"});
-                const multiDay=opt.length>1;
-                return(<div key={i} onClick={()=>setChosen(i)}
-                  style={{border:`2px solid ${isCh?C.primary:C.border}`,borderRadius:10,padding:"10px 12px",cursor:"pointer",background:isCh?"#EAF2FF":"#FAFBFC",transition:"all 0.12s"}}>
-                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:6}}>
-                    <div>
-                      <div style={{fontWeight:700,color:C.primary,fontSize:13}}>
-                        {firstDate}{multiDay&&` → ${lastDate}`}
-                      </div>
-                      <div style={{fontSize:11,color:C.muted}}>
-                        {multiDay?`${opt.length} дня · `:`1 день · `}{totalSl} слотов
-                      </div>
-                    </div>
-                    <div style={{textAlign:"right",flexShrink:0,marginLeft:8}}>
-                      <div style={{fontSize:11,color:C.green,fontWeight:700}}>✓ {totalEff.toFixed(1)}ч работы</div>
-                      {totalBuf>0&&<div style={{fontSize:10,color:C.amber}}>{totalBuf.toFixed(1)}ч буфера</div>}
-                    </div>
+          <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
+            {schedule.map((st,i)=>{
+              const prev=schedule[i-1];
+              const sameDay=prev&&isSameDay(prev.date,st.date);
+              const gap=sameDay?(st.startH-prev.endH):null;
+              return(<div key={i}>
+                {gap!==null&&gap>0.01&&<div style={{fontSize:10,color:C.amber,textAlign:"center",margin:"3px 0"}}>⏳ пауза {fmtH(gap)}</div>}
+                {prev&&!sameDay&&<div style={{fontSize:10,color:C.sub,textAlign:"center",margin:"3px 0"}}>↓ следующий рабочий день</div>}
+                <div style={{border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:28,height:28,borderRadius:8,background:st.staff.color,color:st.staff.textColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{st.staff.emoji}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:700,color:C.primary}}>{st.staff.name} · {st.work}</div>
+                    <div style={{fontSize:11,color:C.muted}}>{st.date.toLocaleDateString("ru",{weekday:"short",day:"numeric",month:"long"})}</div>
                   </div>
-                  {/* Per-day breakdown */}
-                  {opt.map((day,di)=>(
-                    <div key={di} style={{marginBottom:di<opt.length-1?6:0}}>
-                      {multiDay&&<div style={{fontSize:9,fontWeight:700,color:C.sub,marginBottom:3}}>
-                        📅 {day.date.toLocaleDateString("ru",{weekday:"short",day:"numeric",month:"short"})} · {day.effH.toFixed(1)}ч эфф{day.bufH>0?` + ${day.bufH.toFixed(1)}ч буф`:""}
-                      </div>}
-                      <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
-                        {day.slots.map(sl=>(
-                          <div key={sl.id} style={{padding:"2px 7px",borderRadius:99,background:sl.color,fontSize:9,fontWeight:600,color:sl.textColor,display:"flex",alignItems:"center",gap:3}}>
-                            {fmt(sl.start)}–{fmt(sl.end)}
-                            {!sl.eff&&<span style={{opacity:0.65}}> буфер</span>}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  {totalBuf>0&&<div style={{marginTop:5,fontSize:9,color:C.amber,background:"#FFF8E8",borderRadius:4,padding:"2px 6px",display:"inline-block"}}>
-                    ⚠️ Нужно {fmtH(neededH)}: {totalEff.toFixed(1)}ч эфф + {totalBuf.toFixed(1)}ч буфера
-                  </div>}
-                </div>);
-              })}
-            </div>
-
-            {/* Chosen plan detail */}
-            {plan&&<div style={{background:"#F8FAFC",borderRadius:8,padding:"10px 12px",marginBottom:14,border:`1px solid ${C.border}`}}>
-              <div style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",marginBottom:8}}>
-                Будут забронированы — {planDays} {planDays===1?"день":"дн."} · {planTotalSlots} слотов · {planTotalEff.toFixed(1)}ч эфф.
-              </div>
-              {plan.map((day,di)=>{
-                let globalOffset=plan.slice(0,di).reduce((a,d)=>a+d.slots.length,0);
-                return(<div key={di} style={{marginBottom:di<plan.length-1?10:0}}>
-                  {plan.length>1&&<div style={{fontSize:10,fontWeight:700,color:C.sub,marginBottom:4,paddingBottom:3,borderBottom:`1px solid ${C.border}`}}>
-                    📅 {day.date.toLocaleDateString("ru",{weekday:"long",day:"numeric",month:"long"})}
-                  </div>}
-                  <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                    {day.slots.map((sl,si)=>{
-                      const gi=globalOffset+si;
-                      return(<div key={sl.id} style={{display:"flex",alignItems:"center",gap:8}}>
-                        <div style={{width:7,height:7,borderRadius:2,background:sl.color,flexShrink:0}}/>
-                        <div style={{fontSize:11,fontWeight:700,color:C.primary,minWidth:95}}>{fmt(sl.start)}–{fmt(sl.end)}</div>
-                        <div style={{fontSize:11,color:C.muted,flex:1}}>{sl.label}{!sl.eff?" · буфер":""}</div>
-                        <div style={{fontSize:9,color:gi===0?C.green:C.amber,fontWeight:600,whiteSpace:"nowrap"}}>{gi===0?"▶ Начало":"⛓ Продолж."}</div>
-                      </div>);
-                    })}
-                  </div>
-                </div>);
-              })}
-            </div>}
-
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>setStep(1)} style={{flex:1,padding:"10px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600}}>← Изменить</button>
-              <button onClick={doConfirm} style={{flex:2,padding:"10px 0",border:"none",borderRadius:8,background:C.green,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:13}}>
-                ✅ Подтвердить запись
-              </button>
-            </div>
-          </>)}
+                  <div style={{fontSize:12,fontWeight:800,color:C.sub,whiteSpace:"nowrap"}}>{fmt(st.startH)}–{fmt(st.endH)}</div>
+                </div>
+              </div>);
+            })}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>setStep(1)} style={{flex:1,padding:"10px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600}}>← Изменить</button>
+            <button onClick={doConfirm} style={{flex:2,padding:"10px 0",border:"none",borderRadius:8,background:C.green,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:13}}>✅ Подтвердить запись</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1777,7 +1752,7 @@ export default function App(){
   );
 
   return(<div style={{fontFamily:"'Inter',system-ui,sans-serif",background:C.bg,minHeight:"100vh"}}>
-    {modal?.type==="smart"&&<SmartBookingModal staff={modal.staff} startDate={modal.startDate} initialSlot={modal.initialSlot} bookings={bookings} onConfirm={confirmMulti} onClose={()=>setModal(null)}/>}
+    {modal?.type==="smart"&&<SmartBookingModal staff={modal.staff} allStaff={staff} startDate={modal.startDate} initialSlot={modal.initialSlot} bookings={bookings} onConfirm={confirmMulti} onClose={()=>setModal(null)}/>}
     {modal?.type==="single"&&<SlotModal staff={modal.staff} slot={modal.slot} date={modal.date} existing={modal.existing} onSave={data=>{book(modal.key,data);setModal(null);}} onDelete={()=>{unbook(modal.key);setModal(null);}} onClose={()=>setModal(null)}/>}
 
     <div style={{background:C.primary,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
