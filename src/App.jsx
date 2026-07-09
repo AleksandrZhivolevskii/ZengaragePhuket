@@ -1250,7 +1250,7 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
 
   const pickClient=(c)=>{const cs=c.cars||[];const patch={client:c.name,clientId:c.id,car:"",carId:null};if(cs.length===1){patch.car=carLabel(cs[0]);patch.carId=cs[0].id;}onChange(patch);setOpen(false);};
   const pickCar=(cr)=>onChange({car:carLabel(cr),carId:cr.id});
-  const doAddClient=async()=>{const name=(addC.name||"").trim();if(!name)return alert("Введите имя");setBusy(true);const r=await apiPost('/directory',{op:'upsertClient',client:{name,phone:addC.phone||"",type:addC.type||"individual",taxNumber:addC.taxNumber||"",companyAddress:addC.companyAddress||""}}).catch(()=>null);setBusy(false);if(r&&r.success){load(l=>{const nc=l.find(x=>x.id===r.id);if(nc)pickClient(nc);});setAddC(null);}else alert("Не удалось добавить клиента");};
+  const doAddClient=async()=>{const name=(addC.name||"").trim();if(!name)return alert("Введите имя");setBusy(true);const r=await apiPost('/directory',{op:'upsertClient',client:{name,phone:addC.phone||"",email:addC.email||"",type:addC.type||"individual",contactPerson:addC.contactPerson||"",taxNumber:addC.taxNumber||"",companyAddress:addC.companyAddress||""}}).catch(()=>null);setBusy(false);if(r&&r.success){load(l=>{const nc=l.find(x=>x.id===r.id);if(nc)pickClient(nc);});setAddC(null);}else alert("Не удалось добавить клиента");};
   const doAddCar=async()=>{if(!clientId)return;setBusy(true);const r=await apiPost('/directory',{op:'upsertCar',car:{client_id:clientId,make:addCar.make||"",model:addCar.model||"",vin:addCar.vin||"",plate:addCar.plate||""}}).catch(()=>null);setBusy(false);if(r&&r.success){load(l=>{const nc=l.find(x=>x.id===clientId);const cr=nc&&(nc.cars||[]).find(x=>x.id===r.id);if(cr)pickCar(cr);});setAddCar(null);}else alert("Не удалось добавить машину");};
   const link={fontSize:11,fontWeight:700,color:C.sub,background:"transparent",border:"none",cursor:"pointer",padding:"5px 0",marginTop:2};
   const ghost={flex:1,padding:"8px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600};
@@ -1270,7 +1270,7 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
             <div style={{fontSize:10,color:C.muted}}>{c.phone||""}{(c.cars||[]).length?`  ·  🚗 ${(c.cars||[]).length}`:""}</div>
           </div>
         ))}
-        {s&&!exact&&<div onMouseDown={()=>setAddC({name:client.trim(),phone:"",type:"individual",taxNumber:"",companyAddress:""})} style={{padding:"9px 10px",cursor:"pointer",color:C.sub,fontWeight:700,fontSize:12,background:"#F0F7FF"}}>＋ Добавить «{client.trim()}» в базу</div>}
+        {s&&!exact&&<div onMouseDown={()=>setAddC({name:client.trim(),phone:"",email:"",type:"individual",contactPerson:"",taxNumber:"",companyAddress:""})} style={{padding:"9px 10px",cursor:"pointer",color:C.sub,fontWeight:700,fontSize:12,background:"#F0F7FF"}}>＋ Добавить «{client.trim()}» в базу</div>}
         {!matches.length&&!s&&<div style={{padding:"9px 10px",fontSize:11,color:C.muted}}>База пуста — введите имя, чтобы добавить</div>}
       </div>}
     </div>
@@ -1299,10 +1299,12 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
         </div>
         <div><L>{addC.type==="company"?"Название компании *":"Имя *"}</L><input autoFocus value={addC.name} onChange={e=>setAddC({...addC,name:e.target.value})} placeholder={addC.type==="company"?"ООО «Ромашка»":""} style={inp}/></div>
         {addC.type==="company"&&<>
+          <div><L>Контактное лицо</L><input value={addC.contactPerson} onChange={e=>setAddC({...addC,contactPerson:e.target.value})} placeholder="Имя представителя" style={inp}/></div>
           <div><L>Налоговый номер</L><input value={addC.taxNumber} onChange={e=>setAddC({...addC,taxNumber:e.target.value})} placeholder="Необязательно" style={inp}/></div>
           <div><L>Адрес компании</L><textarea value={addC.companyAddress} onChange={e=>setAddC({...addC,companyAddress:e.target.value})} rows={2} placeholder="Необязательно" style={{...inp,resize:"vertical"}}/></div>
         </>}
         <div><L>Телефон</L><input value={addC.phone} onChange={e=>setAddC({...addC,phone:e.target.value})} placeholder="+66…" style={inp}/></div>
+        <div><L>Email</L><input value={addC.email} onChange={e=>setAddC({...addC,email:e.target.value})} placeholder="Необязательно" style={inp}/></div>
         <div style={{display:"flex",gap:8}}><button onClick={()=>setAddC(null)} style={ghost}>Отмена</button><button onClick={doAddClient} disabled={busy} style={prim}>Добавить</button></div>
       </div>
     </Modal>}
@@ -1329,6 +1331,7 @@ function ClientBase(){
   const [expanded,setExpanded]=useState(null);
   const [clientForm,setClientForm]=useState(null);
   const [carForm,setCarForm]=useState(null);
+  const [imp,setImp]=useState(null);
   const fileRef=useRef(null);
 
   const load=()=>{setLoading(true);apiGet('/directory').then(r=>{if(r.clients)setClients(r.clients);setLoading(false);}).catch(()=>setLoading(false));};
@@ -1350,49 +1353,62 @@ function ClientBase(){
   const saveCar=async()=>{setBusy(true);await apiPost('/directory',{op:'upsertCar',car:carForm}).catch(()=>{});setBusy(false);setCarForm(null);load();};
   const delCar=async(id)=>{if(!confirm("Удалить машину?"))return;setBusy(true);await apiPost('/directory',{op:'deleteCar',id}).catch(()=>{});setBusy(false);load();};
 
-  const H=["Тип","Имя","Телефон","Мессенджер","Налоговый номер","Адрес компании","Заметка","Марка","Модель","VIN","Гос.номер"];
+  // Формат = колонки исходного CRM-файла (для совместимости выгрузки/загрузки)
+  const H=["Customer","Customer Email","Customer Phone","Company Name","License Plate","Make","Model","Sub Model","Year","Fuel Type","Vin Number","Drivetrain","Transmission Type","Body Type"];
   const exportXlsx=()=>{
     const rows=[];
     clients.forEach(c=>{
-      const base={"Тип":c.type==="company"?"Компания":"Индивидуальный","Имя":c.name,"Телефон":c.phone||"","Мессенджер":c.messenger||"","Налоговый номер":c.taxNumber||"","Адрес компании":c.companyAddress||"","Заметка":c.note||""};
-      if(!c.cars||!c.cars.length)rows.push({...base,"Марка":"","Модель":"","VIN":"","Гос.номер":""});
-      else c.cars.forEach(car=>rows.push({...base,"Марка":car.make||"","Модель":car.model||"","VIN":car.vin||"","Гос.номер":car.plate||""}));
+      const isComp=c.type==="company";
+      const base={"Customer":isComp?(c.contactPerson||""):c.name,"Customer Email":c.email||"","Customer Phone":c.phone||"","Company Name":isComp?c.name:""};
+      const carRow=car=>({...base,"License Plate":car.plate||"","Make":car.make||"","Model":car.model||"","Sub Model":car.submodel||"","Year":car.year||"","Fuel Type":car.fuel||"","Vin Number":car.vin||"","Drivetrain":car.drivetrain||"","Transmission Type":car.transmission||"","Body Type":car.bodytype||""};
+      if(!c.cars||!c.cars.length)rows.push(carRow({}));
+      else c.cars.forEach(car=>rows.push(carRow(car)));
     });
     const ws=XLSX.utils.json_to_sheet(rows,{header:H});
     ws["!cols"]=H.map(()=>({wch:16}));
-    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"База");
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Vehicle Customer Report");
     XLSX.writeFile(wb,`zen-garage-baza-${new Date().toISOString().slice(0,10)}.xlsx`);
   };
   const onFile=(e)=>{
     const file=e.target.files&&e.target.files[0];if(!file)return;
     const reader=new FileReader();
-    reader.onload=async(ev)=>{
+    reader.onload=(ev)=>{
       try{
         const wb=XLSX.read(ev.target.result,{type:'array'});
         const ws=wb.Sheets[wb.SheetNames[0]];
-        const raw=XLSX.utils.sheet_to_json(ws,{defval:""});
-        const g=(r,keys)=>{for(const k of keys){if(r[k]!==undefined&&String(r[k]).trim()!=="")return String(r[k]).trim();}return "";};
+        const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+        let hi=aoa.findIndex(row=>row.some(c=>/customer|make|license plate|имя|марка/i.test(String(c))));
+        if(hi<0)hi=0;
+        const headers=aoa[hi].map(x=>String(x).trim());
+        const g=(row,keys)=>{for(const k of keys){const i=headers.indexOf(k);if(i>=0&&row[i]!==undefined&&String(row[i]).trim()!=="")return String(row[i]).trim();}return "";};
         const map=new Map();
-        raw.forEach(r=>{
-          const name=g(r,["Имя","имя","Name","ФИО"]);if(!name)return;
-          const phone=g(r,["Телефон","телефон","Phone"]);
-          const key=name+"|"+phone;
-          if(!map.has(key)){const typeRaw=g(r,["Тип","Type"]).toLowerCase();map.set(key,{name,phone,messenger:g(r,["Мессенджер","Messenger","Telegram","WhatsApp"]),note:g(r,["Заметка","Note","Комментарий"]),type:/комп|company/.test(typeRaw)?"company":"individual",taxNumber:g(r,["Налоговый номер","Tax","ИНН"]),companyAddress:g(r,["Адрес компании","Company Address","Адрес"]),cars:[]});}
-          const car={make:g(r,["Марка","Make"]),model:g(r,["Модель","Model"]),vin:g(r,["VIN","Вин","vin"]),plate:g(r,["Гос.номер","Номер","Госномер","Plate"])};
-          if(car.make||car.model||car.vin||car.plate)map.get(key).cars.push(car);
+        aoa.slice(hi+1).forEach(row=>{
+          if(!row.some(c=>c!==undefined&&String(c).trim()!==""))return;
+          const customer=g(row,["Customer","Имя","Name","ФИО"]);
+          const company=g(row,["Company Name","Компания"]);
+          const phone=g(row,["Customer Phone","Телефон","Phone"]);
+          const email=g(row,["Customer Email","Email","Почта"]);
+          const name=company||customer;if(!name)return;
+          const key=name.trim().toLowerCase()+"|"+phone.replace(/\D/g,"");
+          if(!map.has(key))map.set(key,{name,type:company?"company":"individual",contactPerson:company?customer:"",phone,email,cars:[]});
+          const car={make:g(row,["Make","Марка"]),model:g(row,["Model","Модель"]),submodel:g(row,["Sub Model","Подмодель"]),year:g(row,["Year","Год"]),fuel:g(row,["Fuel Type","Топливо"]),vin:g(row,["Vin Number","VIN","Вин"]),plate:g(row,["License Plate","Гос.номер","Номер","Госномер","Plate"]),drivetrain:g(row,["Drivetrain","Привод"]),transmission:g(row,["Transmission Type","Коробка"]),bodytype:g(row,["Body Type","Кузов"])};
+          if(Object.values(car).some(Boolean))map.get(key).cars.push(car);
         });
         const list=[...map.values()];
-        if(!list.length){alert("В файле не найдено ни одного клиента (нужна колонка «Имя»).");return;}
-        if(!confirm(`Импорт ЗАМЕНИТ текущую базу (${clients.length} кл.) данными из файла (${list.length} кл.). Продолжить?`))return;
-        setBusy(true);
-        const res=await apiPost('/directory',{op:'import',replace:true,clients:list});
-        setBusy(false);
-        alert(res&&res.success?`Импортировано клиентов: ${list.length}`:"Ошибка импорта: "+((res&&res.error)||"неизвестно"));
-        load();
+        if(!list.length){alert("В файле не найдено клиентов. Нужна колонка «Customer» (или «Company Name»).");return;}
+        setImp({list,cars:list.reduce((a,c)=>a+c.cars.length,0)});
       }catch(err){alert("Не удалось прочитать файл: "+err.message);}
     };
     reader.readAsArrayBuffer(file);
     e.target.value="";
+  };
+  const doImport=async(mode)=>{
+    if(!imp)return;setBusy(true);
+    const res=await apiPost('/directory',{op:'import',mode,clients:imp.list}).catch(()=>null);
+    setBusy(false);setImp(null);
+    if(res&&res.success)alert(`Готово. Добавлено клиентов: ${res.clientsAdded}, машин: ${res.carsAdded}.${mode==="upsert"?` Обновлено клиентов: ${res.clientsUpdated}, машин: ${res.carsUpdated}.`:` Пропущено дублей-машин: ${res.carsSkipped}.`}`);
+    else alert("Ошибка импорта: "+((res&&res.error)||"неизвестно"));
+    load();
   };
   const btn=(bg,color)=>({padding:"8px 12px",fontSize:12,fontWeight:700,border:"none",borderRadius:8,cursor:"pointer",background:bg,color});
 
@@ -1401,7 +1417,7 @@ function ClientBase(){
   return(<div style={{maxWidth:900,margin:"0 auto"}}>
     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
       <input value={q} onChange={e=>setQ(e.target.value)} placeholder="🔍 Поиск: имя, телефон, машина, VIN, номер…" style={{...inp,flex:1,minWidth:220}}/>
-      <button onClick={()=>setClientForm({name:"",phone:"",messenger:"",note:"",type:"individual",taxNumber:"",companyAddress:""})} style={btn(C.primary,"#fff")}>＋ Клиент</button>
+      <button onClick={()=>setClientForm({name:"",phone:"",email:"",messenger:"",note:"",type:"individual",contactPerson:"",taxNumber:"",companyAddress:""})} style={btn(C.primary,"#fff")}>＋ Клиент</button>
       <button onClick={exportXlsx} style={btn("#E8F5E9",C.green)}>⬇ Скачать Excel</button>
       <button onClick={()=>fileRef.current&&fileRef.current.click()} style={btn("#EAF2FF",C.sub)}>⬆ Загрузить Excel</button>
       <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onFile} style={{display:"none"}}/>
@@ -1414,10 +1430,10 @@ function ClientBase(){
         <div style={{padding:"10px 12px",display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>setExpanded(open?null:c.id)}>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:14,fontWeight:700,color:C.primary}}>{c.type==="company"?"🏢 ":""}{c.name}{c.type==="company"?<span style={{marginLeft:6,fontSize:9,fontWeight:700,color:C.sub,background:"#EAF2FF",borderRadius:4,padding:"1px 6px",verticalAlign:"middle"}}>Компания</span>:null}</div>
-            <div style={{fontSize:11,color:C.muted,marginTop:1}}>{c.phone?`📞 ${c.phone}`:""}{c.phone&&c.messenger?"  ·  ":""}{c.messenger?`💬 ${c.messenger}`:""}</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:1}}>{c.phone?`📞 ${c.phone}`:""}{c.phone&&c.email?"  ·  ":""}{c.email?`✉ ${c.email}`:""}{(c.phone||c.email)&&c.messenger?"  ·  ":""}{c.messenger?`💬 ${c.messenger}`:""}{c.type==="company"&&c.contactPerson?`  ·  👤 ${c.contactPerson}`:""}</div>
           </div>
           <div style={{fontSize:11,color:C.sub,fontWeight:600,whiteSpace:"nowrap"}}>🚗 {c.cars.length}</div>
-          <button onClick={e=>{e.stopPropagation();setClientForm({id:c.id,name:c.name,phone:c.phone||"",messenger:c.messenger||"",note:c.note||"",type:c.type||"individual",taxNumber:c.taxNumber||"",companyAddress:c.companyAddress||""});}} style={{...btn("transparent",C.sub),padding:"5px 7px"}}>✎</button>
+          <button onClick={e=>{e.stopPropagation();setClientForm({id:c.id,name:c.name,phone:c.phone||"",email:c.email||"",messenger:c.messenger||"",note:c.note||"",type:c.type||"individual",contactPerson:c.contactPerson||"",taxNumber:c.taxNumber||"",companyAddress:c.companyAddress||""});}} style={{...btn("transparent",C.sub),padding:"5px 7px"}}>✎</button>
           <button onClick={e=>{e.stopPropagation();delClient(c.id);}} style={{...btn("transparent",C.red),padding:"5px 7px"}}>🗑</button>
           <span style={{color:C.muted,fontSize:12}}>{open?"▲":"▼"}</span>
         </div>
@@ -1428,13 +1444,14 @@ function ClientBase(){
             {c.cars.length===0&&<div style={{fontSize:12,color:C.muted,marginBottom:6}}>Машин пока нет</div>}
             {c.cars.map(car=>(<div key={car.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",background:C.bg,borderRadius:8,marginBottom:5}}>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:600,color:C.primary}}>{[car.make,car.model].filter(Boolean).join(" ")||"—"}</div>
+                <div style={{fontSize:13,fontWeight:600,color:C.primary}}>{[car.make,car.model,car.submodel].filter(Boolean).join(" ")||"—"}{car.year?` · ${car.year}`:""}</div>
                 <div style={{fontSize:10,color:C.muted}}>{car.plate?`№ ${car.plate}`:""}{car.plate&&car.vin?"  ·  ":""}{car.vin?`VIN ${car.vin}`:""}</div>
+                {(car.fuel||car.transmission||car.drivetrain||car.bodytype)?<div style={{fontSize:10,color:C.muted}}>{[car.fuel,car.transmission,car.drivetrain,car.bodytype].filter(Boolean).join(" · ")}</div>:null}
               </div>
-              <button onClick={()=>setCarForm({id:car.id,client_id:c.id,make:car.make||"",model:car.model||"",vin:car.vin||"",plate:car.plate||""})} style={{...btn("transparent",C.sub),padding:"4px 7px"}}>✎</button>
+              <button onClick={()=>setCarForm({id:car.id,client_id:c.id,make:car.make||"",model:car.model||"",submodel:car.submodel||"",year:car.year||"",fuel:car.fuel||"",vin:car.vin||"",plate:car.plate||"",drivetrain:car.drivetrain||"",transmission:car.transmission||"",bodytype:car.bodytype||""})} style={{...btn("transparent",C.sub),padding:"4px 7px"}}>✎</button>
               <button onClick={()=>delCar(car.id)} style={{...btn("transparent",C.red),padding:"4px 7px"}}>🗑</button>
             </div>))}
-            <button onClick={()=>setCarForm({client_id:c.id,make:"",model:"",vin:"",plate:""})} style={{...btn("#EAF2FF",C.sub),marginTop:4}}>＋ Машина</button>
+            <button onClick={()=>setCarForm({client_id:c.id,make:"",model:"",submodel:"",year:"",fuel:"",vin:"",plate:"",drivetrain:"",transmission:"",bodytype:""})} style={{...btn("#EAF2FF",C.sub),marginTop:4}}>＋ Машина</button>
           </div>
         </div>}
       </div>);
@@ -1450,10 +1467,12 @@ function ClientBase(){
         </div>
         <div><L>{clientForm.type==="company"?"Название компании *":"Имя *"}</L><input autoFocus value={clientForm.name} onChange={e=>setClientForm({...clientForm,name:e.target.value})} placeholder={clientForm.type==="company"?"ООО «Ромашка»":"Иван Иванов"} style={inp}/></div>
         {clientForm.type==="company"&&<>
+          <div><L>Контактное лицо</L><input value={clientForm.contactPerson} onChange={e=>setClientForm({...clientForm,contactPerson:e.target.value})} placeholder="Имя представителя" style={inp}/></div>
           <div><L>Налоговый номер</L><input value={clientForm.taxNumber} onChange={e=>setClientForm({...clientForm,taxNumber:e.target.value})} placeholder="Необязательно" style={inp}/></div>
           <div><L>Адрес компании</L><textarea value={clientForm.companyAddress} onChange={e=>setClientForm({...clientForm,companyAddress:e.target.value})} rows={2} placeholder="Необязательно" style={{...inp,resize:"vertical"}}/></div>
         </>}
         <div><L>Телефон</L><input value={clientForm.phone} onChange={e=>setClientForm({...clientForm,phone:e.target.value})} placeholder="+66 ..." style={inp}/></div>
+        <div><L>Email</L><input value={clientForm.email} onChange={e=>setClientForm({...clientForm,email:e.target.value})} placeholder="Необязательно" style={inp}/></div>
         <div><L>Мессенджер (Telegram/WhatsApp)</L><input value={clientForm.messenger} onChange={e=>setClientForm({...clientForm,messenger:e.target.value})} placeholder="@username / +66..." style={inp}/></div>
         <div><L>Заметка</L><textarea value={clientForm.note} onChange={e=>setClientForm({...clientForm,note:e.target.value})} rows={2} placeholder="Доп. информация" style={{...inp,resize:"vertical"}}/></div>
         <div style={{display:"flex",gap:8,marginTop:4}}>
@@ -1468,12 +1487,33 @@ function ClientBase(){
           <div><L>Марка</L><input autoFocus value={carForm.make} onChange={e=>setCarForm({...carForm,make:e.target.value})} placeholder="BMW" style={inp}/></div>
           <div><L>Модель</L><input value={carForm.model} onChange={e=>setCarForm({...carForm,model:e.target.value})} placeholder="330i" style={inp}/></div>
         </div>
-        <div><L>VIN</L><input value={carForm.vin} onChange={e=>setCarForm({...carForm,vin:e.target.value})} placeholder="Необязательно" style={inp}/></div>
-        <div><L>Гос. номер</L><input value={carForm.plate} onChange={e=>setCarForm({...carForm,plate:e.target.value})} placeholder="Необязательно" style={inp}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <div><L>Подмодель</L><input value={carForm.submodel} onChange={e=>setCarForm({...carForm,submodel:e.target.value})} placeholder="Необязательно" style={inp}/></div>
+          <div><L>Год</L><input value={carForm.year} onChange={e=>setCarForm({...carForm,year:e.target.value})} placeholder="2020" style={inp}/></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <div><L>Гос. номер</L><input value={carForm.plate} onChange={e=>setCarForm({...carForm,plate:e.target.value})} placeholder="Необязательно" style={inp}/></div>
+          <div><L>VIN</L><input value={carForm.vin} onChange={e=>setCarForm({...carForm,vin:e.target.value})} placeholder="Необязательно" style={inp}/></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+          <div><L>Топливо</L><input value={carForm.fuel} onChange={e=>setCarForm({...carForm,fuel:e.target.value})} placeholder="Бензин" style={inp}/></div>
+          <div><L>Коробка</L><input value={carForm.transmission} onChange={e=>setCarForm({...carForm,transmission:e.target.value})} placeholder="АКПП" style={inp}/></div>
+          <div><L>Привод</L><input value={carForm.drivetrain} onChange={e=>setCarForm({...carForm,drivetrain:e.target.value})} placeholder="4WD" style={inp}/></div>
+        </div>
+        <div><L>Кузов</L><input value={carForm.bodytype} onChange={e=>setCarForm({...carForm,bodytype:e.target.value})} placeholder="Sedan / SUV" style={inp}/></div>
         <div style={{display:"flex",gap:8,marginTop:4}}>
           <button onClick={()=>setCarForm(null)} style={{...btn("#F0F4F8",C.primary),flex:1}}>Отмена</button>
           <button onClick={saveCar} disabled={busy} style={{...btn(C.primary,"#fff"),flex:2,opacity:busy?0.6:1}}>{busy?"…":"Сохранить"}</button>
         </div>
+      </div>
+    </Modal>}
+    {imp&&<Modal title="Загрузка из Excel" onClose={()=>setImp(null)}>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{fontSize:13,color:C.primary}}>В файле: <b>{imp.list.length}</b> клиентов, <b>{imp.cars}</b> машин.</div>
+        <div style={{fontSize:12,color:C.muted}}>Дубли определяются по имя+телефон (клиент) и VIN / гос.номеру (машина).</div>
+        <button onClick={()=>doImport('add')} disabled={busy} style={{padding:"11px 0",border:"none",borderRadius:8,background:C.primary,color:"#fff",fontWeight:700,cursor:"pointer",opacity:busy?0.6:1}}>➕ Добавить только новые</button>
+        <button onClick={()=>doImport('upsert')} disabled={busy} style={{padding:"11px 0",border:`1.5px solid ${C.sub}`,borderRadius:8,background:"#EAF2FF",color:C.sub,fontWeight:700,cursor:"pointer",opacity:busy?0.6:1}}>🔄 Добавить + обновить совпавших</button>
+        <button onClick={()=>setImp(null)} style={{padding:"9px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,fontWeight:600,cursor:"pointer"}}>Отмена</button>
       </div>
     </Modal>}
   </div>);
