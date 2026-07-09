@@ -1360,7 +1360,7 @@ function ClientBase(){
     clients.forEach(c=>{
       const isComp=c.type==="company";
       const base={"Customer":isComp?(c.contactPerson||""):c.name,"Customer Email":c.email||"","Customer Phone":c.phone||"","Company Name":isComp?c.name:""};
-      const carRow=car=>({...base,"License Plate":car.plate||"","Make":car.make||"","Model":car.model||"","Sub Model":car.submodel||"","Year":car.year||"","Fuel Type":car.fuel||"","Vin Number":car.vin||"","Drivetrain":car.drivetrain||"","Transmission Type":car.transmission||"","Body Type":car.bodytype||""};
+      const carRow=car=>({...base,"License Plate":car.plate||"","Make":car.make||"","Model":car.model||"","Sub Model":car.submodel||"","Year":car.year||"","Fuel Type":car.fuel||"","Vin Number":car.vin||"","Drivetrain":car.drivetrain||"","Transmission Type":car.transmission||"","Body Type":car.bodytype||""});
       if(!c.cars||!c.cars.length)rows.push(carRow({}));
       else c.cars.forEach(car=>rows.push(carRow(car)));
     });
