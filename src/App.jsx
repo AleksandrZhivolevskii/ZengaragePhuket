@@ -1231,6 +1231,12 @@ function Modal({title,onClose,children}){
 
 // Текст машины для отображения в записи
 const carLabel=(cr)=>([cr.make,cr.model].filter(Boolean).join(" ")||cr.plate||"Машина");
+// Строка для поиска по ВСЕМ параметрам клиента и его машин
+const clientHaystack=c=>[c.name,c.phone,c.email,c.messenger,c.contactPerson,c.taxNumber,c.companyAddress,c.note,
+  ...((c.cars||[]).flatMap(x=>[x.make,x.model,x.submodel,x.year,x.fuel,x.vin,x.plate,x.drivetrain,x.transmission,x.bodytype]))
+].filter(Boolean).join(" ").toLowerCase();
+// Все слова запроса должны встречаться (поиск по любому параметру)
+const matchClient=(c,q)=>{const h=clientHaystack(c);return q.toLowerCase().split(/\s+/).filter(Boolean).every(w=>h.includes(w));};
 
 // Умный выбор клиента и машины из базы (используется во всех формах записи)
 function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
@@ -1244,7 +1250,7 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
   useEffect(()=>{load();},[]);
   const selClient=dir.find(c=>c.id===clientId);
   const s=client.trim().toLowerCase();
-  const matches=s?dir.filter(c=>((c.name||"")+" "+(c.phone||"")).toLowerCase().includes(s)):dir;
+  const matches=s?dir.filter(c=>matchClient(c,s)):dir;
   const exact=!!s&&dir.some(c=>(c.name||"").trim().toLowerCase()===s);
   const cars=selClient?(selClient.cars||[]):[];
 
@@ -1266,8 +1272,8 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
       {open&&<div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:60,background:"#fff",border:`1px solid ${C.border}`,borderRadius:8,boxShadow:"0 6px 20px rgba(0,0,0,0.14)",maxHeight:190,overflowY:"auto",marginTop:2}}>
         {matches.slice(0,40).map(c=>(
           <div key={c.id} onMouseDown={()=>pickClient(c)} style={{padding:"7px 10px",cursor:"pointer",borderBottom:`1px solid ${C.bg}`}}>
-            <div style={{fontWeight:600,color:C.primary,fontSize:12}}>{c.name}</div>
-            <div style={{fontSize:10,color:C.muted}}>{c.phone||""}{(c.cars||[]).length?`  ·  🚗 ${(c.cars||[]).length}`:""}</div>
+            <div style={{fontWeight:600,color:C.primary,fontSize:12}}>{c.type==="company"?"🏢 ":""}{c.name}</div>
+            <div style={{fontSize:10,color:C.muted}}>{c.phone||""}{c.phone&&(c.cars||[]).length?"  ·  ":""}{(c.cars||[]).length?(c.cars||[]).map(x=>[carLabel(x),x.plate].filter(Boolean).join(" ")).join(", "):""}</div>
           </div>
         ))}
         {s&&!exact&&<div onMouseDown={()=>setAddC({name:client.trim(),phone:"",email:"",type:"individual",contactPerson:"",taxNumber:"",companyAddress:""})} style={{padding:"9px 10px",cursor:"pointer",color:C.sub,fontWeight:700,fontSize:12,background:"#F0F7FF"}}>＋ Добавить «{client.trim()}» в базу</div>}
@@ -1338,9 +1344,9 @@ function ClientBase(){
   useEffect(load,[]);
 
   const filtered=useMemo(()=>{
-    const s=q.trim().toLowerCase();
+    const s=q.trim();
     if(!s)return clients;
-    return clients.filter(c=>((c.name||"")+" "+(c.phone||"")+" "+(c.messenger||"")+" "+(c.note||"")+" "+(c.cars||[]).map(x=>`${x.make||""} ${x.model||""} ${x.vin||""} ${x.plate||""}`).join(" ")).toLowerCase().includes(s));
+    return clients.filter(c=>matchClient(c,s));
   },[clients,q]);
 
   const saveClient=async()=>{
