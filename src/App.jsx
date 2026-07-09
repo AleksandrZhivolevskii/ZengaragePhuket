@@ -1250,7 +1250,7 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
 
   const pickClient=(c)=>{const cs=c.cars||[];const patch={client:c.name,clientId:c.id,car:"",carId:null};if(cs.length===1){patch.car=carLabel(cs[0]);patch.carId=cs[0].id;}onChange(patch);setOpen(false);};
   const pickCar=(cr)=>onChange({car:carLabel(cr),carId:cr.id});
-  const doAddClient=async()=>{const name=(addC.name||"").trim();if(!name)return alert("Введите имя");setBusy(true);const r=await apiPost('/directory',{op:'upsertClient',client:{name,phone:addC.phone||""}}).catch(()=>null);setBusy(false);if(r&&r.success){load(l=>{const nc=l.find(x=>x.id===r.id);if(nc)pickClient(nc);});setAddC(null);}else alert("Не удалось добавить клиента");};
+  const doAddClient=async()=>{const name=(addC.name||"").trim();if(!name)return alert("Введите имя");setBusy(true);const r=await apiPost('/directory',{op:'upsertClient',client:{name,phone:addC.phone||"",type:addC.type||"individual",taxNumber:addC.taxNumber||"",companyAddress:addC.companyAddress||""}}).catch(()=>null);setBusy(false);if(r&&r.success){load(l=>{const nc=l.find(x=>x.id===r.id);if(nc)pickClient(nc);});setAddC(null);}else alert("Не удалось добавить клиента");};
   const doAddCar=async()=>{if(!clientId)return;setBusy(true);const r=await apiPost('/directory',{op:'upsertCar',car:{client_id:clientId,make:addCar.make||"",model:addCar.model||"",vin:addCar.vin||"",plate:addCar.plate||""}}).catch(()=>null);setBusy(false);if(r&&r.success){load(l=>{const nc=l.find(x=>x.id===clientId);const cr=nc&&(nc.cars||[]).find(x=>x.id===r.id);if(cr)pickCar(cr);});setAddCar(null);}else alert("Не удалось добавить машину");};
   const link={fontSize:11,fontWeight:700,color:C.sub,background:"transparent",border:"none",cursor:"pointer",padding:"5px 0",marginTop:2};
   const ghost={flex:1,padding:"8px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600};
@@ -1270,7 +1270,7 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
             <div style={{fontSize:10,color:C.muted}}>{c.phone||""}{(c.cars||[]).length?`  ·  🚗 ${(c.cars||[]).length}`:""}</div>
           </div>
         ))}
-        {s&&!exact&&<div onMouseDown={()=>setAddC({name:client.trim(),phone:""})} style={{padding:"9px 10px",cursor:"pointer",color:C.sub,fontWeight:700,fontSize:12,background:"#F0F7FF"}}>＋ Добавить «{client.trim()}» в базу</div>}
+        {s&&!exact&&<div onMouseDown={()=>setAddC({name:client.trim(),phone:"",type:"individual",taxNumber:"",companyAddress:""})} style={{padding:"9px 10px",cursor:"pointer",color:C.sub,fontWeight:700,fontSize:12,background:"#F0F7FF"}}>＋ Добавить «{client.trim()}» в базу</div>}
         {!matches.length&&!s&&<div style={{padding:"9px 10px",fontSize:11,color:C.muted}}>База пуста — введите имя, чтобы добавить</div>}
       </div>}
     </div>
@@ -1290,7 +1290,18 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
     </div>
     {addC&&<Modal title="Новый клиент" onClose={()=>setAddC(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <div><L>Имя *</L><input autoFocus value={addC.name} onChange={e=>setAddC({...addC,name:e.target.value})} style={inp}/></div>
+        <div><L>Тип клиента</L>
+          <div style={{display:"flex",gap:8}}>
+            {[["individual","👤 Индивидуальный"],["company","🏢 Компания"]].map(([v,l])=>(
+              <button key={v} type="button" onClick={()=>setAddC({...addC,type:v})} style={{flex:1,padding:"8px 6px",border:`2px solid ${addC.type===v?C.primary:C.border}`,borderRadius:8,background:addC.type===v?"#EAF2FF":"transparent",color:addC.type===v?C.primary:C.muted,fontSize:12,fontWeight:700,cursor:"pointer"}}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div><L>{addC.type==="company"?"Название компании *":"Имя *"}</L><input autoFocus value={addC.name} onChange={e=>setAddC({...addC,name:e.target.value})} placeholder={addC.type==="company"?"ООО «Ромашка»":""} style={inp}/></div>
+        {addC.type==="company"&&<>
+          <div><L>Налоговый номер</L><input value={addC.taxNumber} onChange={e=>setAddC({...addC,taxNumber:e.target.value})} placeholder="Необязательно" style={inp}/></div>
+          <div><L>Адрес компании</L><textarea value={addC.companyAddress} onChange={e=>setAddC({...addC,companyAddress:e.target.value})} rows={2} placeholder="Необязательно" style={{...inp,resize:"vertical"}}/></div>
+        </>}
         <div><L>Телефон</L><input value={addC.phone} onChange={e=>setAddC({...addC,phone:e.target.value})} placeholder="+66…" style={inp}/></div>
         <div style={{display:"flex",gap:8}}><button onClick={()=>setAddC(null)} style={ghost}>Отмена</button><button onClick={doAddClient} disabled={busy} style={prim}>Добавить</button></div>
       </div>
