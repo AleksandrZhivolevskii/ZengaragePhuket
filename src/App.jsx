@@ -225,18 +225,15 @@ function findBookingOptions(staff, startDate, neededHours, bookings) {
 }
 
 // ── ЦЕПОЧКА МАСТЕРОВ (последовательно) ────────────────────────────────────────
-// В свободных слотах дня ищет непрерывный «пробег» рабочих слотов на need часов,
-// начинающийся не раньше minStart. used — ключи уже занятых цепочкой слотов.
+// Набирает свободные рабочие слоты дня (начиная не раньше minStart) на need часов.
+// Слоты могут идти НЕ подряд (через обед) — так длинные работы помещаются в день.
+// used — ключи уже занятых цепочкой слотов.
 function findRun(free, need, minStart, used){
-  const eff=free.filter(s=>s.eff&&!used.has(s.key)).sort((a,b)=>a.start-b.start);
-  for(let i=0;i<eff.length;i++){
-    if(eff[i].start<minStart-1e-9)continue;
-    let sum=0;const run=[];let prevEnd=null;
-    for(let j=i;j<eff.length;j++){
-      if(prevEnd!==null&&Math.abs(eff[j].start-prevEnd)>1e-9)break;
-      run.push(eff[j]);sum+=eff[j].end-eff[j].start;prevEnd=eff[j].end;
-      if(sum+1e-9>=need)return{slots:run,startH:run[0].start,endH:run[run.length-1].end};
-    }
+  const eff=free.filter(s=>s.eff&&!used.has(s.key)&&s.start>=minStart-1e-9).sort((a,b)=>a.start-b.start);
+  let sum=0;const run=[];
+  for(const s of eff){
+    run.push(s);sum+=s.end-s.start;
+    if(sum+1e-9>=need)return{slots:run,startH:run[0].start,endH:run[run.length-1].end};
   }
   return null;
 }
