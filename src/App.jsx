@@ -282,6 +282,19 @@ function chainToBookData(schedule, base){
   });
   return out;
 }
+// До `count` ближайших вариантов цепочки с разными датами старта
+function findChainOptions(steps, startDate, bookings, staffList, count=3){
+  const opts=[];const usedStarts=new Set();let off=0;
+  while(opts.length<count && off<120){
+    const sch=findChain(steps, addDays(startDate,off), bookings, staffList);
+    if(!sch){off++;continue;}
+    const key=dayKey(sch[0].date);
+    if(usedStarts.has(key)){off++;continue;}
+    usedStarts.add(key);opts.push(sch);
+    off=Math.max(off+1, Math.round((sch[0].date-startDate)/86400000)+1);
+  }
+  return opts;
+}
 
 // ── SMART BOOKING MODAL ───────────────────────────────────────────────────────
 function ChainSteps({allStaff, steps, setSteps, inp, lb}){
@@ -325,7 +338,8 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
   const [carId,setCarId]=useState(null);
   const [status,setStatus]=useState("confirmed");
   const [notes,setNotes]=useState("");
-  const [schedule,setSchedule]=useState(null);
+  const [options,setOptions]=useState(null);
+  const [chosen,setChosen]=useState(0);
   const [searching,setSearching]=useState(false);
 
   const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:12,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
@@ -334,13 +348,13 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
     if(!client.trim())return alert("Введите имя клиента");
     setSearching(true);
     setTimeout(()=>{
-      const sch=findChain(steps,startDate,bookings,list);
+      const opts=findChainOptions(steps,startDate,bookings,list);
       setSearching(false);
-      if(!sch){alert("Не удалось построить цепочку в ближайшие ~4 месяца. Попробуйте меньше времени/этапов или другую дату.");return;}
-      setSchedule(sch);setStep(2);
+      if(!opts.length){alert("Не удалось построить цепочку в ближайшие ~4 месяца. Попробуйте меньше времени/этапов или другую дату.");return;}
+      setOptions(opts);setChosen(0);setStep(2);
     },200);
   };
-  const doConfirm=()=>{if(schedule)onConfirm(chainToBookData(schedule,{client,car,clientId,carId,status,notes}));};
+  const doConfirm=()=>{if(options&&options[chosen])onConfirm(chainToBookData(options[chosen],{client,car,clientId,carId,status,notes}));};
 
   if(step===1)return(
     <div style={{position:"fixed",inset:0,background:"rgba(26,63,92,0.55)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:12,overflowY:"auto"}}>
@@ -374,21 +388,28 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
     </div>
   );
 
-  const days=schedule?new Set(schedule.map(s=>dayKey(s.date))).size:0;
+  const opts=options||[]; const sch=opts[chosen]||[]; const days=new Set(sch.map(s=>dayKey(s.date))).size;
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(26,63,92,0.55)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:12,overflowY:"auto"}}>
       <div style={{background:C.card,borderRadius:16,width:"100%",maxWidth:520,boxShadow:"0 8px 40px rgba(26,63,92,0.25)",overflow:"hidden",margin:"auto"}}>
         <div style={{background:C.primary,padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
             <div style={{fontWeight:800,fontSize:14,color:"#fff"}}>{client}{car?` · ${car}`:""}</div>
-            <div style={{fontSize:11,color:"#9BB8D0",marginTop:1}}>Цепочка: {schedule?.length} этап(ов) · {days} дн.</div>
+            <div style={{fontSize:11,color:"#9BB8D0",marginTop:1}}>{sch.length} этап(ов) · {days} дн.{opts.length>1?` · вариант ${chosen+1} из ${opts.length}`:""}</div>
           </div>
           <button onClick={onClose} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:18,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
         </div>
         <div style={{padding:16,maxHeight:"75vh",overflowY:"auto"}}>
+          {opts.length>1&&<div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+            {opts.map((o,i)=>{const f=o[0].date,l=o[o.length-1].date,multi=!isSameDay(f,l);return(
+              <button key={i} onClick={()=>setChosen(i)} style={{flex:"1 1 30%",minWidth:110,padding:"7px 9px",borderRadius:10,border:`2px solid ${chosen===i?C.primary:C.border}`,background:chosen===i?"#EAF2FF":"#FAFBFC",cursor:"pointer",textAlign:"left"}}>
+                <div style={{fontSize:12,fontWeight:800,color:C.primary}}>{f.toLocaleDateString("ru",{day:"numeric",month:"short"})}{multi?` → ${l.toLocaleDateString("ru",{day:"numeric",month:"short"})}`:""}</div>
+                <div style={{fontSize:9,color:C.muted}}>{f.toLocaleDateString("ru",{weekday:"short"})} · {o.length} эт.</div>
+              </button>);})}
+          </div>}
           <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
-            {schedule.map((st,i)=>{
-              const prev=schedule[i-1];
+            {sch.map((st,i)=>{
+              const prev=sch[i-1];
               const sameDay=prev&&isSameDay(prev.date,st.date);
               const gap=sameDay?(st.startH-prev.endH):null;
               return(<div key={i}>
@@ -768,38 +789,39 @@ function SlotFinder({staff, bookings, onConfirm}) {
   const [carId,      setCarId]      = useState(null);
   const [status,     setStatus]     = useState("confirmed");
   const [notes,      setNotes]      = useState("");
-  const [schedule,   setSchedule]   = useState(null);
+  const [options,    setOptions]    = useState(null);
+  const [chosen,     setChosen]     = useState(0);
   const [notFound,   setNotFound]   = useState(false);
   const [searching,  setSearching]  = useState(false);
   const [confirmed,  setConfirmed]  = useState(false);
 
   const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:12,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
   const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:4}}>{t}</label>;
-  const sel=(val,fn,opts,style={})=><select value={val} onChange={e=>fn(e.target.value)} style={{...inp,background:"#fff",cursor:"pointer",...style}}>{opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>;
 
   const doSearch = () => {
     if(!client.trim()) return alert("Введите имя клиента");
-    setSearching(true);setSchedule(null);setConfirmed(false);setNotFound(false);
+    setSearching(true);setOptions(null);setConfirmed(false);setNotFound(false);
     setTimeout(()=>{
       const startDate = wantDate ? new Date(wantDate+"T00:00:00") : today();
-      const sch = findChain(steps, startDate, bookings, staff);
+      const opts = findChainOptions(steps, startDate, bookings, staff);
       setSearching(false);
-      if(!sch){setNotFound(true);return;}
-      setSchedule(sch);
+      if(!opts.length){setNotFound(true);return;}
+      setOptions(opts);setChosen(0);
     },300);
   };
 
   const doConfirm = () => {
-    if(!schedule) return;
-    onConfirm(chainToBookData(schedule,{client,car,clientId,carId,status,notes}));
-    setConfirmed(true);setSchedule(null);
+    if(!options||!options[chosen]) return;
+    onConfirm(chainToBookData(options[chosen],{client,car,clientId,carId,status,notes}));
+    setConfirmed(true);setOptions(null);
   };
 
   const reset = () => {
-    setSchedule(null);setConfirmed(false);setNotFound(false);setClient("");setCar("");setClientId(null);setCarId(null);setNotes("");
+    setOptions(null);setConfirmed(false);setNotFound(false);setClient("");setCar("");setClientId(null);setCarId(null);setNotes("");
   };
 
-  const chainDays = schedule?new Set(schedule.map(s=>dayKey(s.date))).size:0;
+  const opts = options||[]; const sch = opts[chosen]||null;
+  const chainDays = sch?new Set(sch.map(s=>dayKey(s.date))).size:0;
 
   return(
     <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"flex-start"}}>
@@ -877,16 +899,23 @@ function SlotFinder({staff, bookings, onConfirm}) {
           </div>
         )}
 
-        {/* Расписание цепочки */}
-        {schedule&&!confirmed&&(
+        {/* Варианты цепочки (3 ближайшие даты) */}
+        {sch&&!confirmed&&(
           <div style={{background:C.card,borderRadius:12,overflow:"hidden",boxShadow:"0 1px 8px rgba(26,63,92,0.07)"}}>
             <div style={{background:C.sub,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div style={{color:"#fff",fontWeight:700,fontSize:13}}>Цепочка · {schedule.length} этап(ов)</div>
+              <div style={{color:"#fff",fontWeight:700,fontSize:13}}>Цепочка · {sch.length} этап(ов){opts.length>1?` · вариант ${chosen+1}/${opts.length}`:""}</div>
               <div style={{color:"rgba(255,255,255,0.8)",fontSize:10}}>{client||"—"}{car?` · ${car}`:""} · {chainDays} дн.</div>
             </div>
             <div style={{padding:14,display:"flex",flexDirection:"column",gap:6}}>
-              {schedule.map((st,i)=>{
-                const prev=schedule[i-1];
+              {opts.length>1&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>
+                {opts.map((o,i)=>{const f=o[0].date,l=o[o.length-1].date,multi=!isSameDay(f,l);return(
+                  <button key={i} onClick={()=>setChosen(i)} style={{flex:"1 1 30%",minWidth:100,padding:"7px 9px",borderRadius:10,border:`2px solid ${chosen===i?C.primary:C.border}`,background:chosen===i?"#EAF2FF":"#FAFBFC",cursor:"pointer",textAlign:"left"}}>
+                    <div style={{fontSize:12,fontWeight:800,color:C.primary}}>{f.toLocaleDateString("ru",{day:"numeric",month:"short"})}{multi?` → ${l.toLocaleDateString("ru",{day:"numeric",month:"short"})}`:""}</div>
+                    <div style={{fontSize:9,color:C.muted}}>{f.toLocaleDateString("ru",{weekday:"short"})} · {o.length} эт.</div>
+                  </button>);})}
+              </div>}
+              {sch.map((st,i)=>{
+                const prev=sch[i-1];
                 const sameDay=prev&&isSameDay(prev.date,st.date);
                 const gap=sameDay?(st.startH-prev.endH):null;
                 return(<div key={i}>
@@ -908,7 +937,7 @@ function SlotFinder({staff, bookings, onConfirm}) {
         )}
 
         {/* Плейсхолдер */}
-        {!schedule&&!confirmed&&!searching&&!notFound&&(
+        {!options&&!confirmed&&!searching&&!notFound&&(
           <div style={{background:C.card,borderRadius:12,padding:"40px 20px",textAlign:"center",boxShadow:"0 1px 8px rgba(26,63,92,0.07)",color:C.muted}}>
             <div style={{fontSize:36,marginBottom:12,opacity:0.4}}>🔍</div>
             <div style={{fontWeight:700,fontSize:14,color:C.primary,marginBottom:6}}>Добавьте мастеров и нажмите «Найти слоты»</div>
