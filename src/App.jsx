@@ -763,24 +763,18 @@ function DayTimeline({staff,onSlotsChange}){
 
 // ── SLOT FINDER PANEL ─────────────────────────────────────────────────────────
 function SlotFinder({staff, bookings, onConfirm}) {
-  const [selStaffId, setSelStaffId] = useState(staff[0]?.id||"");
-  const [neededH,    setNeededH]    = useState(2);
+  const [steps,      setSteps]      = useState([{staffId:staff[0]?.id||"",work:"ТО",hours:1.5}]);
   const [wantDate,   setWantDate]   = useState(""); // ISO yyyy-mm-dd, optional
   const [client,     setClient]     = useState("");
   const [car,        setCar]        = useState("");
   const [clientId,   setClientId]   = useState(null);
   const [carId,      setCarId]      = useState(null);
-  const [work,       setWork]       = useState("ТО");
-  const [workOther,  setWorkOther]  = useState("");
   const [status,     setStatus]     = useState("confirmed");
   const [notes,      setNotes]      = useState("");
-  const [results,    setResults]    = useState(null);  // array of plans
-  const [chosen,     setChosen]     = useState(0);
+  const [schedule,   setSchedule]   = useState(null);
+  const [notFound,   setNotFound]   = useState(false);
   const [searching,  setSearching]  = useState(false);
   const [confirmed,  setConfirmed]  = useState(false);
-
-  const selStaff = staff.find(s=>s.id===selStaffId)||staff[0];
-  const finalWork = work==="Другое"?workOther:work;
 
   const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:12,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
   const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:4}}>{t}</label>;
@@ -788,51 +782,27 @@ function SlotFinder({staff, bookings, onConfirm}) {
 
   const doSearch = () => {
     if(!client.trim()) return alert("Введите имя клиента");
-    setSearching(true);
-    setResults(null);
-    setConfirmed(false);
-    setChosen(0);
+    setSearching(true);setSchedule(null);setConfirmed(false);setNotFound(false);
     setTimeout(()=>{
-      // If date specified use it, otherwise start from today
       const startDate = wantDate ? new Date(wantDate+"T00:00:00") : today();
-      const res = findBookingOptions(selStaff, startDate, neededH, bookings);
-      setResults(res);
+      const sch = findChain(steps, startDate, bookings, staff);
       setSearching(false);
+      if(!sch){setNotFound(true);return;}
+      setSchedule(sch);
     },300);
   };
 
   const doConfirm = () => {
-    if(!results||!results[chosen]) return;
-    const plan=results[chosen];
-    const grp=uid();
-    let gi=0;
-    const totalSl=plan.reduce((a,d)=>a+d.slots.length,0);
-    const bookData=[];
-    plan.forEach(day=>{
-      day.slots.forEach(sl=>{
-        bookData.push({
-          key:bKey(selStaff.id,day.date,sl.id),
-          data:{client,car,clientId,carId,work:finalWork,status,notes,
-            startH:sl.start,dur:sl.end-sl.start,color:sl.color,endH:sl.end,
-            multiGroup:grp,isContinuation:gi>0,totalSlots:totalSl,slotIndex:gi,bookingDays:plan.length},
-        });
-        gi++;
-      });
-    });
-    onConfirm(bookData);
-    setConfirmed(true);
-    setResults(null);
+    if(!schedule) return;
+    onConfirm(chainToBookData(schedule,{client,car,clientId,carId,status,notes}));
+    setConfirmed(true);setSchedule(null);
   };
 
   const reset = () => {
-    setResults(null);setConfirmed(false);setClient("");setCar("");setClientId(null);setCarId(null);setNotes("");
+    setSchedule(null);setConfirmed(false);setNotFound(false);setClient("");setCar("");setClientId(null);setCarId(null);setNotes("");
   };
 
-  const plan = results?.[chosen];
-  const planDays = plan?.length||0;
-  const planEff  = plan?.reduce((a,d)=>a+d.effH,0)||0;
-  const planBuf  = plan?.reduce((a,d)=>a+d.bufH,0)||0;
-  const planSl   = plan?.reduce((a,d)=>a+d.slots.length,0)||0;
+  const chainDays = schedule?new Set(schedule.map(s=>dayKey(s.date))).size:0;
 
   return(
     <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"flex-start"}}>
@@ -846,28 +816,8 @@ function SlotFinder({staff, bookings, onConfirm}) {
           </div>
           <div style={{padding:14,display:"flex",flexDirection:"column",gap:12}}>
 
-            {/* Сотрудник */}
-            <div>{lb("Сотрудник")}
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {staff.map(s=>(
-                  <button key={s.id} onClick={()=>setSelStaffId(s.id)}
-                    style={{padding:"6px 12px",borderRadius:8,border:`2px solid ${selStaffId===s.id?s.color:C.border}`,background:selStaffId===s.id?s.color:C.card,color:selStaffId===s.id?s.textColor:C.muted,fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
-                    {s.emoji} {s.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Часов на работу */}
-            <div style={{background:"#F0F7FF",borderRadius:8,padding:"10px 12px",border:`1.5px solid ${C.sub}33`}}>
-              {lb("⏱ Время на работу")}
-              <select value={neededH} onChange={e=>setNeededH(+e.target.value)}
-                style={{...inp,fontWeight:700,fontSize:14,background:"#FFFBEF",borderColor:"#FBC84A"}}>
-                {DURATIONS.map(d=><option key={d} value={d}>
-                  {d<1?d*60+" мин":d<=8?d+" ч":d<=24?d+" ч (~"+Math.ceil(d/7)+" дн.)":d+" ч (~"+Math.ceil(d/7)+" дн.)"}
-                </option>)}
-              </select>
-            </div>
+            {/* Цепочка мастеров */}
+            <ChainSteps allStaff={staff} steps={steps} setSteps={setSteps} inp={inp} lb={lb}/>
 
             {/* Желаемая дата */}
             <div>
@@ -880,12 +830,6 @@ function SlotFinder({staff, bookings, onConfirm}) {
                   style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:16,lineHeight:1}}>×</button>}
               </div>
               {!wantDate&&<div style={{fontSize:10,color:C.muted,marginTop:3}}>Не выбрана — подберём с сегодняшнего дня</div>}
-            </div>
-
-            {/* Тип работы */}
-            <div>{lb("Тип работы")}
-              {sel(work,setWork,WORK_TYPES.map(t=>[t,t]).concat([["Другое","Другое..."]]))}
-              {work==="Другое"&&<input value={workOther} onChange={e=>setWorkOther(e.target.value)} placeholder="Укажите тип" style={{...inp,marginTop:6}}/>}
             </div>
 
             {/* Клиент + авто */}
@@ -919,147 +863,59 @@ function SlotFinder({staff, bookings, onConfirm}) {
           <div style={{background:"#EDF9F0",border:`1.5px solid ${C.green}`,borderRadius:12,padding:"20px 16px",textAlign:"center"}}>
             <div style={{fontSize:32,marginBottom:8}}>✅</div>
             <div style={{fontWeight:700,fontSize:15,color:C.green,marginBottom:4}}>Запись подтверждена!</div>
-            <div style={{fontSize:12,color:C.muted,marginBottom:14}}>{client} · {finalWork} · {fmtH(neededH)}</div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:14}}>{client}{car?` · ${car}`:""}</div>
             <button onClick={reset} style={{padding:"8px 20px",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,color:C.primary,cursor:"pointer",fontWeight:600,fontSize:12}}>
               + Новый подбор
             </button>
           </div>
         )}
 
-        {/* No results */}
-        {results&&results.length===0&&!confirmed&&(
+        {/* Не удалось */}
+        {notFound&&!confirmed&&(
           <div style={{background:C.card,borderRadius:12,padding:"30px 16px",textAlign:"center",boxShadow:"0 1px 8px rgba(26,63,92,0.07)"}}>
             <div style={{fontSize:28,marginBottom:8}}>😔</div>
-            <div style={{fontWeight:700,color:C.primary,marginBottom:6}}>Нет доступных слотов</div>
-            <div style={{fontSize:12,color:C.muted}}>
-              У {selStaff?.name} нет последовательных свободных дней для {fmtH(neededH)} в ближайшие 90 дней
-              {wantDate?` от ${new Date(wantDate+"T00:00:00").toLocaleDateString("ru",{day:"numeric",month:"long"})}`:""}.
-            </div>
-            <button onClick={()=>setResults(null)} style={{marginTop:14,padding:"7px 18px",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600,fontSize:12}}>
-              ← Изменить параметры
-            </button>
+            <div style={{fontWeight:700,color:C.primary,marginBottom:6}}>Не удалось построить цепочку</div>
+            <div style={{fontSize:12,color:C.muted}}>Попробуйте меньше времени, меньше этапов или другую дату.</div>
+            <button onClick={()=>setNotFound(false)} style={{marginTop:14,padding:"7px 18px",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600,fontSize:12}}>← Изменить параметры</button>
           </div>
         )}
 
-        {/* Results */}
-        {results&&results.length>0&&!confirmed&&(<>
+        {/* Расписание цепочки */}
+        {schedule&&!confirmed&&(
           <div style={{background:C.card,borderRadius:12,overflow:"hidden",boxShadow:"0 1px 8px rgba(26,63,92,0.07)"}}>
             <div style={{background:C.sub,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div style={{color:"#fff",fontWeight:700,fontSize:13}}>Найдено {results.length} вариант{results.length>1?"а":""}</div>
-              <div style={{color:"rgba(255,255,255,0.75)",fontSize:10}}>{selStaff?.emoji} {selStaff?.name} · {fmtH(neededH)}</div>
+              <div style={{color:"#fff",fontWeight:700,fontSize:13}}>Цепочка · {schedule.length} этап(ов)</div>
+              <div style={{color:"rgba(255,255,255,0.8)",fontSize:10}}>{client||"—"}{car?` · ${car}`:""} · {chainDays} дн.</div>
             </div>
-            <div style={{padding:12,display:"flex",flexDirection:"column",gap:8}}>
-              {results.map((opt,i)=>{
-                const isCh=chosen===i;
-                const totEff=opt.reduce((a,d)=>a+d.effH,0);
-                const totBuf=opt.reduce((a,d)=>a+d.bufH,0);
-                const totSl=opt.reduce((a,d)=>a+d.slots.length,0);
-                const first=opt[0].date.toLocaleDateString("ru",{weekday:"short",day:"numeric",month:"long"});
-                const last=opt.length>1?opt[opt.length-1].date.toLocaleDateString("ru",{day:"numeric",month:"long"}):null;
-                return(
-                  <div key={i} onClick={()=>setChosen(i)}
-                    style={{border:`2px solid ${isCh?C.primary:C.border}`,borderRadius:10,padding:"10px 12px",cursor:"pointer",background:isCh?"#EAF2FF":"#FAFBFC",transition:"all 0.12s"}}>
-                    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:6}}>
-                      <div>
-                        <div style={{fontWeight:700,color:C.primary,fontSize:13}}>
-                          {first}{last?` → ${last}`:""}
-                        </div>
-                        <div style={{fontSize:11,color:C.muted}}>
-                          {opt.length===1?"1 день":opt.length+" дня"} · {totSl} слотов
-                        </div>
-                      </div>
-                      <div style={{textAlign:"right",flexShrink:0,marginLeft:8}}>
-                        <div style={{fontSize:11,color:C.green,fontWeight:700}}>✓ {totEff.toFixed(1)}ч работы</div>
-                        {totBuf>0&&<div style={{fontSize:10,color:C.amber}}>{totBuf.toFixed(1)}ч буфера</div>}
-                      </div>
+            <div style={{padding:14,display:"flex",flexDirection:"column",gap:6}}>
+              {schedule.map((st,i)=>{
+                const prev=schedule[i-1];
+                const sameDay=prev&&isSameDay(prev.date,st.date);
+                const gap=sameDay?(st.startH-prev.endH):null;
+                return(<div key={i}>
+                  {gap!==null&&gap>0.01&&<div style={{fontSize:10,color:C.amber,textAlign:"center",margin:"3px 0"}}>⏳ пауза {fmtH(gap)}</div>}
+                  {prev&&!sameDay&&<div style={{fontSize:10,color:C.sub,textAlign:"center",margin:"3px 0"}}>↓ следующий рабочий день</div>}
+                  <div style={{border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{width:28,height:28,borderRadius:8,background:st.staff.color,color:st.staff.textColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{st.staff.emoji}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:700,color:C.primary}}>{st.staff.name} · {st.work}</div>
+                      <div style={{fontSize:11,color:C.muted}}>{st.date.toLocaleDateString("ru",{weekday:"short",day:"numeric",month:"long"})}</div>
                     </div>
-                    {/* Per-day pills */}
-                    {opt.map((day,di)=>(
-                      <div key={di} style={{marginBottom:di<opt.length-1?5:0}}>
-                        {opt.length>1&&<div style={{fontSize:9,color:C.sub,fontWeight:700,marginBottom:3}}>
-                          📅 {day.date.toLocaleDateString("ru",{weekday:"short",day:"numeric",month:"short"})} · {day.effH.toFixed(1)}ч{day.bufH>0?` +${day.bufH.toFixed(1)}б`:""}
-                        </div>}
-                        <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
-                          {day.slots.map(sl=>(
-                            <span key={sl.id} style={{padding:"2px 7px",borderRadius:99,background:sl.color,fontSize:9,fontWeight:600,color:sl.textColor}}>
-                              {fmt(sl.start)}–{fmt(sl.end)}{!sl.eff?" ●":""}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                    {totBuf>0&&<div style={{marginTop:5,fontSize:9,color:C.amber,background:"#FFF8E8",borderRadius:4,padding:"2px 6px",display:"inline-block"}}>
-                      ⚠️ {totEff.toFixed(1)}ч эфф + {totBuf.toFixed(1)}ч буфера = {fmtH(neededH)}
-                    </div>}
+                    <div style={{fontSize:12,fontWeight:800,color:C.sub,whiteSpace:"nowrap"}}>{fmt(st.startH)}–{fmt(st.endH)}</div>
                   </div>
-                );
+                </div>);
               })}
+              <button onClick={doConfirm} style={{marginTop:6,padding:"12px 0",border:"none",borderRadius:9,background:C.green,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:14}}>✅ Подтвердить и внести в календарь</button>
             </div>
           </div>
+        )}
 
-          {/* Detail of chosen */}
-          {plan&&(
-            <div style={{background:C.card,borderRadius:12,overflow:"hidden",boxShadow:"0 1px 8px rgba(26,63,92,0.07)"}}>
-              <div style={{background:"#F0F4F8",padding:"9px 14px",borderBottom:`1px solid ${C.border}`}}>
-                <div style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase"}}>
-                  Детали выбранного варианта · {planDays} {planDays===1?"день":"дн."} · {planSl} слотов · {planEff.toFixed(1)}ч эфф.
-                </div>
-              </div>
-              <div style={{padding:14,display:"flex",flexDirection:"column",gap:8}}>
-                {/* Client summary */}
-                <div style={{background:"#F8FAFC",borderRadius:8,padding:"8px 12px",fontSize:11,display:"flex",gap:16,flexWrap:"wrap"}}>
-                  <span><b style={{color:C.primary}}>{client||"—"}</b></span>
-                  {car&&<span style={{color:C.muted}}>{car}</span>}
-                  <span style={{color:C.muted}}>{finalWork}</span>
-                  <span style={{color:C.muted}}>{fmtH(neededH)}</span>
-                </div>
-                {/* Slots breakdown */}
-                {plan.map((day,di)=>{
-                  let offset=plan.slice(0,di).reduce((a,d)=>a+d.slots.length,0);
-                  return(
-                    <div key={di} style={{borderLeft:`3px solid ${C.sub}`,paddingLeft:10}}>
-                      <div style={{fontSize:11,fontWeight:700,color:C.sub,marginBottom:5}}>
-                        📅 {day.date.toLocaleDateString("ru",{weekday:"long",day:"numeric",month:"long"})}
-                        <span style={{fontWeight:400,color:C.muted,marginLeft:6}}>{day.effH.toFixed(1)}ч работы{day.bufH>0?` + ${day.bufH.toFixed(1)}ч буфера`:""}</span>
-                      </div>
-                      <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                        {day.slots.map((sl,si)=>{
-                          const gi=offset+si;
-                          return(
-                            <div key={sl.id} style={{display:"flex",alignItems:"center",gap:8,padding:"3px 0"}}>
-                              <div style={{width:7,height:7,borderRadius:2,background:sl.color,flexShrink:0}}/>
-                              <div style={{fontSize:11,fontWeight:700,color:C.primary,minWidth:95}}>{fmt(sl.start)}–{fmt(sl.end)}</div>
-                              <div style={{fontSize:11,color:C.muted,flex:1}}>{sl.label}{!sl.eff?" · буфер":""}</div>
-                              <div style={{fontSize:9,fontWeight:700,color:gi===0?C.green:C.amber,whiteSpace:"nowrap"}}>
-                                {gi===0?"▶ Начало":"⛓ "+gi+" из "+(planSl-1)}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-                {/* Confirm */}
-                <button onClick={doConfirm}
-                  style={{marginTop:4,padding:"12px 0",border:"none",borderRadius:9,background:C.green,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:14}}>
-                  ✅ Подтвердить и внести в календарь
-                </button>
-              </div>
-            </div>
-          )}
-        </>)}
-
-        {/* Placeholder when nothing searched yet */}
-        {results===null&&!confirmed&&!searching&&(
+        {/* Плейсхолдер */}
+        {!schedule&&!confirmed&&!searching&&!notFound&&(
           <div style={{background:C.card,borderRadius:12,padding:"40px 20px",textAlign:"center",boxShadow:"0 1px 8px rgba(26,63,92,0.07)",color:C.muted}}>
             <div style={{fontSize:36,marginBottom:12,opacity:0.4}}>🔍</div>
-            <div style={{fontWeight:700,fontSize:14,color:C.primary,marginBottom:6}}>Заполните параметры и нажмите «Найти слоты»</div>
-            <div style={{fontSize:12,lineHeight:1.6}}>
-              Система автоматически найдёт ближайшую дату<br/>
-              с последовательными свободными слотами<br/>
-              на нужное количество часов
-            </div>
+            <div style={{fontWeight:700,fontSize:14,color:C.primary,marginBottom:6}}>Добавьте мастеров и нажмите «Найти слоты»</div>
+            <div style={{fontSize:12,lineHeight:1.6}}>Каждый этап (мастер + работа + время)<br/>встанет во времени друг за другом</div>
           </div>
         )}
       </div>
