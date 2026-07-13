@@ -224,74 +224,85 @@ function findBookingOptions(staff, startDate, neededHours, bookings) {
   return options;
 }
 
-// ── ЦЕПОЧКА МАСТЕРОВ (последовательно) ────────────────────────────────────────
-// Набирает свободные рабочие слоты дня (начиная не раньше minStart) на need часов.
-// Слоты могут идти НЕ подряд (через обед) — так длинные работы помещаются в день.
-// used — ключи уже занятых цепочкой слотов.
-function findRun(free, need, minStart, used){
-  const eff=free.filter(s=>s.eff&&!used.has(s.key)&&s.start>=minStart-1e-9).sort((a,b)=>a.start-b.start);
-  let sum=0;const run=[];
-  for(const s of eff){
-    run.push(s);sum+=s.end-s.start;
-    if(sum+1e-9>=need)return{slots:run,startH:run[0].start,endH:run[run.length-1].end};
+// ── ЦЕПОЧКА МАСТЕРОВ (последовательно, с переносом на след. дни) ──────────────
+// Набирает свободные рабочие слоты мастера на need часов, начиная с fromDate.
+// Первый день стартует не раньше minStartFirst (учёт паузы после пред. этапа);
+// работа может занимать сколько угодно дней подряд — забиваем все доступные слоты
+// каждого дня, пока не наберём need. Каждый слот помечается своей датой.
+function collectStep(staff, fromDate, minStartFirst, need, used, bookings, maxGapH, hadCursor, maxScan){
+  const collected=[]; let sum=0, started=false, firstStartH=null;
+  for(let off=0; off<maxScan && sum+1e-9<need; off++){
+    const day=addDays(fromDate,off);
+    const dow=(day.getDay()+6)%7+1;
+    if(!staff.workDays.includes(dow)) continue;
+    const free=getFreeSlotsForDay(staff,day,bookings);
+    const dayMin=(!started && hadCursor && off===0) ? minStartFirst : DAY_START;
+    const eff=free.filter(s=>s.eff && !used.has(s.key) && s.start>=dayMin-1e-9).sort((a,b)=>a.start-b.start);
+    if(!eff.length) continue;
+    if(!started){
+      if(hadCursor && off===0 && (eff[0].start - minStartFirst) > maxGapH+1e-9) continue; // пауза >лимита → след. день
+      started=true; firstStartH=eff[0].start;
+    }
+    for(const s of eff){
+      collected.push({...s, date:day}); sum+=s.end-s.start;
+      if(sum+1e-9>=need) break;
+    }
   }
-  return null;
+  if(sum+1e-9<need) return null;
+  const last=collected[collected.length-1];
+  return {slots:collected, firstDate:collected[0].date, firstStartH, lastDate:last.date, lastEndH:last.end};
 }
-// steps=[{staffId,work,hours}] → расписание [{staffId,staff,work,hours,date,slots,startH,endH}] или null
-function findChain(steps, startDate, bookings, staffList, maxGapH=6, maxScan=120){
-  const schedule=[];const used=new Set();let cursor=null; // {date,endH}
+// steps=[{staffId,work,hours}] → расписание или null. Этап может тянуться на много дней.
+function findChain(steps, startDate, bookings, staffList, maxGapH=6, maxScan=400){
+  const schedule=[]; const used=new Set(); let cursor=null; // {date,endH}
   for(const step of steps){
     const staff=staffList.find(s=>s.id===step.staffId);
-    if(!staff)return null;
-    const need=step.hours;let placed=null;
-    const base=cursor?cursor.date:startDate;
-    for(let off=0;off<maxScan;off++){
-      const day=addDays(base,off);
-      const dow=(day.getDay()+6)%7+1;
-      if(!staff.workDays.includes(dow))continue;
-      const free=getFreeSlotsForDay(staff,day,bookings);
-      if(!free.length)continue;
-      const sameDay=cursor&&isSameDay(day,cursor.date);
-      const minStart=sameDay?cursor.endH:DAY_START;
-      const run=findRun(free,need,minStart,used);
-      if(!run)continue;
-      if(sameDay&&(run.startH-cursor.endH)>maxGapH+1e-9)continue; // пауза больше лимита → следующий день
-      placed={date:day,slots:run.slots,startH:run.startH,endH:run.endH};
-      break;
-    }
-    if(!placed)return null;
-    placed.slots.forEach(sl=>used.add(bKey(step.staffId,placed.date,sl.id)));
-    schedule.push({staffId:step.staffId,staff,work:step.work,hours:need,date:placed.date,slots:placed.slots,startH:placed.startH,endH:placed.endH});
-    cursor={date:placed.date,endH:placed.endH};
+    if(!staff) return null;
+    const fromDate=cursor?cursor.date:startDate;
+    const res=collectStep(staff, fromDate, cursor?cursor.endH:DAY_START, step.hours, used, bookings, maxGapH, !!cursor, maxScan);
+    if(!res) return null;
+    res.slots.forEach(sl=>used.add(bKey(step.staffId, sl.date, sl.id)));
+    schedule.push({staffId:step.staffId, staff, work:step.work, hours:step.hours, slots:res.slots,
+      firstDate:res.firstDate, firstStartH:res.firstStartH, lastDate:res.lastDate, lastEndH:res.lastEndH});
+    cursor={date:res.lastDate, endH:res.lastEndH};
   }
   return schedule;
 }
-// Расписание цепочки → массив броней для confirmMulti
+// Расписание цепочки → массив броней (у каждого слота своя дата)
 function chainToBookData(schedule, base){
-  const grp=uid();const total=schedule.reduce((a,st)=>a+st.slots.length,0);
-  const days=new Set(schedule.map(st=>dayKey(st.date))).size;
-  let gi=0;const out=[];
+  const grp=uid();
+  const total=schedule.reduce((a,st)=>a+st.slots.length,0);
+  const dset=new Set(); schedule.forEach(st=>st.slots.forEach(sl=>dset.add(dayKey(sl.date))));
+  let gi=0; const out=[];
   schedule.forEach(st=>{
     st.slots.forEach(sl=>{
-      out.push({key:bKey(st.staffId,st.date,sl.id),data:{
-        ...base,work:st.work,startH:sl.start,dur:sl.end-sl.start,color:sl.color,endH:sl.end,
-        multiGroup:grp,isContinuation:gi>0,totalSlots:total,slotIndex:gi,bookingDays:days,
+      out.push({key:bKey(st.staffId, sl.date, sl.id), data:{
+        ...base, work:st.work, startH:sl.start, dur:sl.end-sl.start, color:sl.color, endH:sl.end,
+        multiGroup:grp, isContinuation:gi>0, totalSlots:total, slotIndex:gi, bookingDays:dset.size,
       }});
       gi++;
     });
   });
   return out;
 }
+// Текст даты/времени этапа (одиночный день или диапазон дней)
+const chainStepWhen=st=>{
+  if(isSameDay(st.firstDate,st.lastDate))
+    return `${st.firstDate.toLocaleDateString("ru",{weekday:"short",day:"numeric",month:"short"})} · ${fmt(st.firstStartH)}–${fmt(st.lastEndH)}`;
+  const nd=new Set(st.slots.map(s=>dayKey(s.date))).size;
+  return `${st.firstDate.toLocaleDateString("ru",{day:"numeric",month:"short"})} ${fmt(st.firstStartH)} → ${st.lastDate.toLocaleDateString("ru",{day:"numeric",month:"short"})} ${fmt(st.lastEndH)} · ${nd} дн.`;
+};
+const chainDaysCount=sch=>new Set(sch.flatMap(s=>s.slots.map(sl=>dayKey(sl.date)))).size;
 // До `count` ближайших вариантов цепочки с разными датами старта
 function findChainOptions(steps, startDate, bookings, staffList, count=3){
-  const opts=[];const usedStarts=new Set();let off=0;
-  while(opts.length<count && off<120){
+  const opts=[]; const usedStarts=new Set(); let off=0;
+  while(opts.length<count && off<180){
     const sch=findChain(steps, addDays(startDate,off), bookings, staffList);
     if(!sch){off++;continue;}
-    const key=dayKey(sch[0].date);
+    const key=dayKey(sch[0].firstDate);
     if(usedStarts.has(key)){off++;continue;}
-    usedStarts.add(key);opts.push(sch);
-    off=Math.max(off+1, Math.round((sch[0].date-startDate)/86400000)+1);
+    usedStarts.add(key); opts.push(sch);
+    off=Math.max(off+1, Math.round((sch[0].firstDate-startDate)/86400000)+1);
   }
   return opts;
 }
@@ -388,7 +399,7 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
     </div>
   );
 
-  const opts=options||[]; const sch=opts[chosen]||[]; const days=new Set(sch.map(s=>dayKey(s.date))).size;
+  const opts=options||[]; const sch=opts[chosen]||[]; const days=chainDaysCount(sch);
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(26,63,92,0.55)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:12,overflowY:"auto"}}>
       <div style={{background:C.card,borderRadius:16,width:"100%",maxWidth:520,boxShadow:"0 8px 40px rgba(26,63,92,0.25)",overflow:"hidden",margin:"auto"}}>
@@ -401,7 +412,7 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
         </div>
         <div style={{padding:16,maxHeight:"75vh",overflowY:"auto"}}>
           {opts.length>1&&<div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
-            {opts.map((o,i)=>{const f=o[0].date,l=o[o.length-1].date,multi=!isSameDay(f,l);return(
+            {opts.map((o,i)=>{const f=o[0].firstDate,l=o[o.length-1].lastDate,multi=!isSameDay(f,l);return(
               <button key={i} onClick={()=>setChosen(i)} style={{flex:"1 1 30%",minWidth:110,padding:"7px 9px",borderRadius:10,border:`2px solid ${chosen===i?C.primary:C.border}`,background:chosen===i?"#EAF2FF":"#FAFBFC",cursor:"pointer",textAlign:"left"}}>
                 <div style={{fontSize:12,fontWeight:800,color:C.primary}}>{f.toLocaleDateString("ru",{day:"numeric",month:"short"})}{multi?` → ${l.toLocaleDateString("ru",{day:"numeric",month:"short"})}`:""}</div>
                 <div style={{fontSize:9,color:C.muted}}>{f.toLocaleDateString("ru",{weekday:"short"})} · {o.length} эт.</div>
@@ -410,8 +421,8 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
           <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
             {sch.map((st,i)=>{
               const prev=sch[i-1];
-              const sameDay=prev&&isSameDay(prev.date,st.date);
-              const gap=sameDay?(st.startH-prev.endH):null;
+              const sameDay=prev&&isSameDay(prev.lastDate,st.firstDate);
+              const gap=sameDay?(st.firstStartH-prev.lastEndH):null;
               return(<div key={i}>
                 {gap!==null&&gap>0.01&&<div style={{fontSize:10,color:C.amber,textAlign:"center",margin:"3px 0"}}>⏳ пауза {fmtH(gap)}</div>}
                 {prev&&!sameDay&&<div style={{fontSize:10,color:C.sub,textAlign:"center",margin:"3px 0"}}>↓ следующий рабочий день</div>}
@@ -419,9 +430,8 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
                   <div style={{width:28,height:28,borderRadius:8,background:st.staff.color,color:st.staff.textColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{st.staff.emoji}</div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:13,fontWeight:700,color:C.primary}}>{st.staff.name} · {st.work}</div>
-                    <div style={{fontSize:11,color:C.muted}}>{st.date.toLocaleDateString("ru",{weekday:"short",day:"numeric",month:"long"})}</div>
+                    <div style={{fontSize:11,color:C.muted}}>{chainStepWhen(st)}</div>
                   </div>
-                  <div style={{fontSize:12,fontWeight:800,color:C.sub,whiteSpace:"nowrap"}}>{fmt(st.startH)}–{fmt(st.endH)}</div>
                 </div>
               </div>);
             })}
@@ -821,7 +831,7 @@ function SlotFinder({staff, bookings, onConfirm}) {
   };
 
   const opts = options||[]; const sch = opts[chosen]||null;
-  const chainDays = sch?new Set(sch.map(s=>dayKey(s.date))).size:0;
+  const chainDays = sch?chainDaysCount(sch):0;
 
   return(
     <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"flex-start"}}>
@@ -908,7 +918,7 @@ function SlotFinder({staff, bookings, onConfirm}) {
             </div>
             <div style={{padding:14,display:"flex",flexDirection:"column",gap:6}}>
               {opts.length>1&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>
-                {opts.map((o,i)=>{const f=o[0].date,l=o[o.length-1].date,multi=!isSameDay(f,l);return(
+                {opts.map((o,i)=>{const f=o[0].firstDate,l=o[o.length-1].lastDate,multi=!isSameDay(f,l);return(
                   <button key={i} onClick={()=>setChosen(i)} style={{flex:"1 1 30%",minWidth:100,padding:"7px 9px",borderRadius:10,border:`2px solid ${chosen===i?C.primary:C.border}`,background:chosen===i?"#EAF2FF":"#FAFBFC",cursor:"pointer",textAlign:"left"}}>
                     <div style={{fontSize:12,fontWeight:800,color:C.primary}}>{f.toLocaleDateString("ru",{day:"numeric",month:"short"})}{multi?` → ${l.toLocaleDateString("ru",{day:"numeric",month:"short"})}`:""}</div>
                     <div style={{fontSize:9,color:C.muted}}>{f.toLocaleDateString("ru",{weekday:"short"})} · {o.length} эт.</div>
@@ -916,8 +926,8 @@ function SlotFinder({staff, bookings, onConfirm}) {
               </div>}
               {sch.map((st,i)=>{
                 const prev=sch[i-1];
-                const sameDay=prev&&isSameDay(prev.date,st.date);
-                const gap=sameDay?(st.startH-prev.endH):null;
+                const sameDay=prev&&isSameDay(prev.lastDate,st.firstDate);
+                const gap=sameDay?(st.firstStartH-prev.lastEndH):null;
                 return(<div key={i}>
                   {gap!==null&&gap>0.01&&<div style={{fontSize:10,color:C.amber,textAlign:"center",margin:"3px 0"}}>⏳ пауза {fmtH(gap)}</div>}
                   {prev&&!sameDay&&<div style={{fontSize:10,color:C.sub,textAlign:"center",margin:"3px 0"}}>↓ следующий рабочий день</div>}
@@ -925,9 +935,8 @@ function SlotFinder({staff, bookings, onConfirm}) {
                     <div style={{width:28,height:28,borderRadius:8,background:st.staff.color,color:st.staff.textColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{st.staff.emoji}</div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:700,color:C.primary}}>{st.staff.name} · {st.work}</div>
-                      <div style={{fontSize:11,color:C.muted}}>{st.date.toLocaleDateString("ru",{weekday:"short",day:"numeric",month:"long"})}</div>
+                      <div style={{fontSize:11,color:C.muted}}>{chainStepWhen(st)}</div>
                     </div>
-                    <div style={{fontSize:12,fontWeight:800,color:C.sub,whiteSpace:"nowrap"}}>{fmt(st.startH)}–{fmt(st.endH)}</div>
                   </div>
                 </div>);
               })}
