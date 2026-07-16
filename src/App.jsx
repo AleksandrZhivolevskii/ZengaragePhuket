@@ -12,6 +12,45 @@ let LANG = (typeof localStorage!=='undefined' && localStorage.getItem('zg_lang')
 function useT(){ return (ru,en)=> LANG==='en'?(en===undefined?ru:en):ru; }
 const MONTHS = ()=> LANG==='en'?MONTHS_EN:MONTHS_RU;
 const DAYS   = ()=> LANG==='en'?DAYS_EN:DAYS_RU;
+// Словарь: рус → англ. tr("Русское") вернёт англ., если язык EN и перевод есть.
+const DICT = {
+  // подписи полей
+  "Заметки":"Notes","Статус":"Status","Тип работы":"Work type","Клиент *":"Client *","Авто":"Vehicle",
+  "Мастера и работы (по порядку)":"Technicians & works (in order)","⏱ Время на работу":"⏱ Time needed",
+  "Желаемая дата (необязательно)":"Preferred date (optional)","Сотрудник":"Technician",
+  "Имя *":"Name *","Название компании *":"Company name *","Телефон":"Phone","Email":"Email",
+  "Мессенджер (Telegram/WhatsApp)":"Messenger (Telegram/WhatsApp)","Контактное лицо":"Contact person",
+  "Налоговый номер":"Tax number","Адрес компании":"Company address","Тип клиента":"Client type",
+  "Марка":"Make","Модель":"Model","Подмодель":"Sub model","Год":"Year","VIN":"VIN","Гос. номер":"License plate",
+  "Топливо":"Fuel","Коробка":"Transmission","Привод":"Drivetrain","Кузов":"Body type",
+  // кнопки / действия
+  "Отмена":"Cancel","Сохранить":"Save","Записать":"Book","Добавить":"Add","Удалить":"Delete",
+  "＋ Добавить мастера":"＋ Add technician","← Изменить":"← Edit","← Изменить параметры":"← Change parameters",
+  "✅ Подтвердить запись":"✅ Confirm booking","✅ Подтвердить и внести в календарь":"✅ Confirm & add to calendar",
+  "＋ Клиент":"＋ Client","⬇ Скачать Excel":"⬇ Download Excel","⬆ Загрузить Excel":"⬆ Upload Excel",
+  "＋ Машина":"＋ Vehicle","＋ Добавить машину":"＋ Add vehicle",
+  // фразы
+  "🔍 Найти слоты →":"🔍 Find slots →","🔍 Найти слоты":"🔍 Find slots","🔍 Ищу слоты...":"🔍 Searching...",
+  "🔍 Ищу подходящие слоты...":"🔍 Searching for slots...","Не удалось построить цепочку":"Couldn't build the chain",
+  "↓ следующий рабочий день":"↓ next working day","Продолжение":"Continuation","рабочий":"work","буфер":"buffer",
+  "Другое":"Other","Другое...":"Other...","Укажите тип":"Specify type","Новый клиент":"New client","Новая машина":"New vehicle",
+  "Редактировать клиента":"Edit client","Редактировать машину":"Edit vehicle","Необязательно":"Optional",
+  "Индивидуальный":"Individual","Компания":"Company","👤 Индивидуальный":"👤 Individual","🏢 Компания":"🏢 Company",
+  "Начните вводить имя…":"Start typing a name…","✓ выбран из базы":"✓ from base","Машин пока нет":"No vehicles yet",
+  "У клиента пока нет машин":"Client has no vehicles yet","Выберите машину…":"Select a vehicle…",
+  "Ничего не найдено":"Nothing found","Загрузка базы…":"Loading base…","Имя представителя":"Representative name",
+  "🔍 Поиск: имя, телефон, машина, VIN, номер…":"🔍 Search: name, phone, vehicle, VIN, plate…",
+  "Добавьте мастеров и нажмите «Найти слоты»":"Add technicians and press “Find slots”",
+  "этап(ов)":"stage(s)","дн.":"d","вариант":"option","из":"of","⏳ пауза":"⏳ gap","Цепочка":"Chain",
+  "Время слота":"Slot time","Доп. информация...":"Extra info...","🔍 Ищу слоты...":"🔍 Searching...",
+  "Попробуйте меньше времени, меньше этапов или другую дату.":"Try less time, fewer stages, or another date.",
+  "Каждый этап (мастер + работа + время)":"Each stage (technician + work + time)",
+  "встанет во времени друг за другом":"is scheduled one after another",
+  "Клиентов":"Clients","найдено":"found","Загрузка…":"Loading…","мин":"min","ч":"h",
+  "Себест.":"Cost","Прибыль":"Profit","Пока нет позиций — нажмите":"No items yet — press",
+  "Пока пусто":"Empty for now","дн":"d",
+};
+const tr = ru => (LANG==='en' && DICT[ru]) ? DICT[ru] : ru;
 const C = { bg:"#F4F7FA",card:"#fff",primary:"#1A3F5C",sub:"#2D6A9F",border:"#E0E8F0",muted:"#6B8090",red:"#E74C3C",green:"#27AE60",amber:"#F39C12" };
 const COLORS = ["#B5D4F4","#C5E0A0","#FDE8A0","#FBC84A","#D9D6F5","#FAC775","#B8E8D0","#7DC8A8","#DDE8D0","#F7C1C1","#EEECEA","#E8D5F5"];
 const WORK_TYPES = ["ТО","Мех. работы","Диагностика","Электро-работы","Chip Tuning","Сложный ремонт","Видеорегистратор","Заправка кондей","Установка фар","Другое"];
@@ -299,7 +338,7 @@ const chainStepWhen=st=>{
   if(isSameDay(st.firstDate,st.lastDate))
     return `${st.firstDate.toLocaleDateString(LANG,{weekday:"short",day:"numeric",month:"short"})} · ${fmt(st.firstStartH)}–${fmt(st.lastEndH)}`;
   const nd=new Set(st.slots.map(s=>dayKey(s.date))).size;
-  return `${st.firstDate.toLocaleDateString(LANG,{day:"numeric",month:"short"})} ${fmt(st.firstStartH)} → ${st.lastDate.toLocaleDateString(LANG,{day:"numeric",month:"short"})} ${fmt(st.lastEndH)} · ${nd} дн.`;
+  return `${st.firstDate.toLocaleDateString(LANG,{day:"numeric",month:"short"})} ${fmt(st.firstStartH)} → ${st.lastDate.toLocaleDateString(LANG,{day:"numeric",month:"short"})} ${fmt(st.lastEndH)} · ${nd} ${tr("дн.")}`;
 };
 const chainDaysCount=sch=>new Set(sch.flatMap(s=>s.slots.map(sl=>dayKey(sl.date)))).size;
 // До `count` ближайших вариантов цепочки с разными датами старта
@@ -344,7 +383,7 @@ function ChainSteps({allStaff, steps, setSteps, inp, lb}){
         </div>
       ))}
     </div>
-    <button type="button" onClick={add} style={{marginTop:8,width:"100%",padding:"8px",border:`1.5px dashed ${C.sub}`,borderRadius:8,background:"transparent",color:C.sub,fontWeight:700,fontSize:12,cursor:"pointer"}}>＋ Добавить мастера</button>
+    <button type="button" onClick={add} style={{marginTop:8,width:"100%",padding:"8px",border:`1.5px dashed ${C.sub}`,borderRadius:8,background:"transparent",color:C.sub,fontWeight:700,fontSize:12,cursor:"pointer"}}>{tr("＋ Добавить мастера")}</button>
   </div>);
 }
 
@@ -363,7 +402,7 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
   const [searching,setSearching]=useState(false);
 
   const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:12,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
-  const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>{t}</label>;
+  const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>{tr(t)}</label>;
   const doSearch=()=>{
     if(!client.trim())return alert("Введите имя клиента");
     setSearching(true);
@@ -397,10 +436,10 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
             ))}
           </div></div>
           <div style={{display:"flex",gap:8}}>
-            <button onClick={onClose} style={{flex:1,padding:"10px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600}}>Отмена</button>
+            <button onClick={onClose} style={{flex:1,padding:"10px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600}}>{tr("Отмена")}</button>
             <button onClick={doSearch} disabled={searching}
               style={{flex:2,padding:"10px 0",border:"none",borderRadius:8,background:C.primary,color:"#fff",cursor:"pointer",fontWeight:700,opacity:searching?0.7:1}}>
-              {searching?"🔍 Ищу слоты...":"🔍 Найти слоты →"}
+              {searching?tr("🔍 Ищу слоты..."):tr("🔍 Найти слоты →")}
             </button>
           </div>
         </div>
@@ -415,7 +454,7 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
         <div style={{background:C.primary,padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
             <div style={{fontWeight:800,fontSize:14,color:"#fff"}}>{client}{car?` · ${car}`:""}</div>
-            <div style={{fontSize:11,color:"#9BB8D0",marginTop:1}}>{sch.length} этап(ов) · {days} дн.{opts.length>1?` · вариант ${chosen+1} из ${opts.length}`:""}</div>
+            <div style={{fontSize:11,color:"#9BB8D0",marginTop:1}}>{sch.length} {tr("этап(ов)")} · {days} {tr("дн.")}{opts.length>1?` · ${tr("вариант")} ${chosen+1} ${tr("из")} ${opts.length}`:""}</div>
           </div>
           <button onClick={onClose} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:18,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
         </div>
@@ -433,8 +472,8 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
               const sameDay=prev&&isSameDay(prev.lastDate,st.firstDate);
               const gap=sameDay?(st.firstStartH-prev.lastEndH):null;
               return(<div key={i}>
-                {gap!==null&&gap>0.01&&<div style={{fontSize:10,color:C.amber,textAlign:"center",margin:"3px 0"}}>⏳ пауза {fmtH(gap)}</div>}
-                {prev&&!sameDay&&<div style={{fontSize:10,color:C.sub,textAlign:"center",margin:"3px 0"}}>↓ следующий рабочий день</div>}
+                {gap!==null&&gap>0.01&&<div style={{fontSize:10,color:C.amber,textAlign:"center",margin:"3px 0"}}>{tr("⏳ пауза")} {fmtH(gap)}</div>}
+                {prev&&!sameDay&&<div style={{fontSize:10,color:C.sub,textAlign:"center",margin:"3px 0"}}>{tr("↓ следующий рабочий день")}</div>}
                 <div style={{border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
                   <div style={{width:28,height:28,borderRadius:8,background:st.staff.color,color:st.staff.textColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{st.staff.emoji}</div>
                   <div style={{flex:1,minWidth:0}}>
@@ -446,8 +485,8 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
             })}
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>setStep(1)} style={{flex:1,padding:"10px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600}}>← Изменить</button>
-            <button onClick={doConfirm} style={{flex:2,padding:"10px 0",border:"none",borderRadius:8,background:C.green,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:13}}>✅ Подтвердить запись</button>
+            <button onClick={()=>setStep(1)} style={{flex:1,padding:"10px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600}}>{tr("← Изменить")}</button>
+            <button onClick={doConfirm} style={{flex:2,padding:"10px 0",border:"none",borderRadius:8,background:C.green,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:13}}>{tr("✅ Подтвердить запись")}</button>
           </div>
         </div>
       </div>
@@ -466,7 +505,7 @@ function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
   const [status,setStatus]=useState(existing?.status||"confirmed");
   const [notes,setNotes]=useState(existing?.notes||"");
   const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:12,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
-  const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>{t}</label>;
+  const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>{tr(t)}</label>;
   const finalWork=work==="Другое"?workOther:work;
   const isCont=existing?.isContinuation;
   return(
@@ -485,11 +524,11 @@ function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
         <div style={{padding:14,display:"flex",flexDirection:"column",gap:10}}>
           {isCont&&<div style={{background:"#FFF8E8",borderRadius:6,padding:"6px 10px",fontSize:10,color:"#5A3C00"}}>⛓ Слот {existing.slotIndex+1} из {existing.totalSlots} в групповом заказе.</div>}
           <div style={{background:"#F0F7FF",borderRadius:6,padding:"5px 10px",fontSize:10,color:C.sub}}>
-            Время слота: <b>{fmt(slot.start)}–{fmt(slot.end)}</b> · {slot.end-slot.start}ч · {slot.eff?"рабочий":"буфер"}
+            {tr("Время слота")}: <b>{fmt(slot.start)}–{fmt(slot.end)}</b> · {slot.end-slot.start}{tr("ч")} · {slot.eff?tr("рабочий"):tr("буфер")}
           </div>
           <div>{lb("Тип работы")}
             <select value={work} onChange={e=>setWork(e.target.value)} style={{...inp,background:"#fff"}}>
-              {WORK_TYPES.map(t=><option key={t} value={t}>{t}</option>)}<option value="Другое">Другое...</option>
+              {WORK_TYPES.map(t=><option key={t} value={t}>{t}</option>)}<option value="Другое">{tr("Другое...")}</option>
             </select>
             {work==="Другое"&&<input value={workOther} onChange={e=>setWorkOther(e.target.value)} style={{...inp,marginTop:6}}/>}
           </div>
@@ -503,9 +542,9 @@ function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
           </div></div>
           <div style={{display:"flex",gap:8}}>
             {!!existing&&<button onClick={onDelete} style={{padding:"8px 10px",border:`1px solid ${C.red}`,borderRadius:8,background:"transparent",color:C.red,cursor:"pointer",fontWeight:600}}>🗑</button>}
-            <button onClick={onClose} style={{flex:1,padding:"8px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600}}>Отмена</button>
+            <button onClick={onClose} style={{flex:1,padding:"8px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600}}>{tr("Отмена")}</button>
             <button onClick={()=>{if(!client.trim())return alert("Введите имя");onSave({client,car,clientId,carId,work:finalWork,status,notes,startH:slot.start,dur:slot.end-slot.start,color:slot.color,endH:slot.end});}}
-              style={{flex:2,padding:"8px 0",border:"none",borderRadius:8,background:C.primary,color:"#fff",cursor:"pointer",fontWeight:700}}>{existing?"Сохранить":"Записать"}</button>
+              style={{flex:2,padding:"8px 0",border:"none",borderRadius:8,background:C.primary,color:"#fff",cursor:"pointer",fontWeight:700}}>{existing?tr("Сохранить"):tr("Записать")}</button>
           </div>
         </div>
       </div>
@@ -818,7 +857,7 @@ function SlotFinder({staff, bookings, onConfirm}) {
   const [confirmed,  setConfirmed]  = useState(false);
 
   const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:12,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
-  const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:4}}>{t}</label>;
+  const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:4}}>{tr(t)}</label>;
 
   const doSearch = () => {
     if(!client.trim()) return alert("Введите имя клиента");
@@ -878,7 +917,7 @@ function SlotFinder({staff, bookings, onConfirm}) {
               onChange={p=>{if('client'in p)setClient(p.client);if('car'in p)setCar(p.car);if('clientId'in p)setClientId(p.clientId);if('carId'in p)setCarId(p.carId);}}/>
 
             {/* Заметки */}
-            <div>{lb("Заметки")}<textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2} placeholder="Доп. информация..." style={{...inp,resize:"vertical"}}/></div>
+            <div>{lb("Заметки")}<textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2} placeholder={tr("Доп. информация...")} style={{...inp,resize:"vertical"}}/></div>
 
             {/* Статус */}
             <div>{lb("Статус")}<div style={{display:"flex",gap:6}}>
@@ -890,7 +929,7 @@ function SlotFinder({staff, bookings, onConfirm}) {
             {/* Search button */}
             <button onClick={doSearch} disabled={searching}
               style={{padding:"11px 0",border:"none",borderRadius:9,background:C.primary,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:14,opacity:searching?0.7:1,transition:"opacity 0.15s"}}>
-              {searching?"🔍 Ищу подходящие слоты...":"🔍 Найти слоты"}
+              {searching?tr("🔍 Ищу подходящие слоты..."):tr("🔍 Найти слоты")}
             </button>
           </div>
         </div>
@@ -915,9 +954,9 @@ function SlotFinder({staff, bookings, onConfirm}) {
         {notFound&&!confirmed&&(
           <div style={{background:C.card,borderRadius:12,padding:"30px 16px",textAlign:"center",boxShadow:"0 1px 8px rgba(26,63,92,0.07)"}}>
             <div style={{fontSize:28,marginBottom:8}}>😔</div>
-            <div style={{fontWeight:700,color:C.primary,marginBottom:6}}>Не удалось построить цепочку</div>
-            <div style={{fontSize:12,color:C.muted}}>Попробуйте меньше времени, меньше этапов или другую дату.</div>
-            <button onClick={()=>setNotFound(false)} style={{marginTop:14,padding:"7px 18px",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600,fontSize:12}}>← Изменить параметры</button>
+            <div style={{fontWeight:700,color:C.primary,marginBottom:6}}>{tr("Не удалось построить цепочку")}</div>
+            <div style={{fontSize:12,color:C.muted}}>{tr("Попробуйте меньше времени, меньше этапов или другую дату.")}</div>
+            <button onClick={()=>setNotFound(false)} style={{marginTop:14,padding:"7px 18px",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600,fontSize:12}}>{tr("← Изменить параметры")}</button>
           </div>
         )}
 
@@ -925,7 +964,7 @@ function SlotFinder({staff, bookings, onConfirm}) {
         {sch&&!confirmed&&(
           <div style={{background:C.card,borderRadius:12,overflow:"hidden",boxShadow:"0 1px 8px rgba(26,63,92,0.07)"}}>
             <div style={{background:C.sub,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div style={{color:"#fff",fontWeight:700,fontSize:13}}>Цепочка · {sch.length} этап(ов){opts.length>1?` · вариант ${chosen+1}/${opts.length}`:""}</div>
+              <div style={{color:"#fff",fontWeight:700,fontSize:13}}>{tr("Цепочка")} · {sch.length} {tr("этап(ов)")}{opts.length>1?` · ${tr("вариант")} ${chosen+1}/${opts.length}`:""}</div>
               <div style={{color:"rgba(255,255,255,0.8)",fontSize:10}}>{client||"—"}{car?` · ${car}`:""} · {chainDays} дн.</div>
             </div>
             <div style={{padding:14,display:"flex",flexDirection:"column",gap:6}}>
@@ -941,8 +980,8 @@ function SlotFinder({staff, bookings, onConfirm}) {
                 const sameDay=prev&&isSameDay(prev.lastDate,st.firstDate);
                 const gap=sameDay?(st.firstStartH-prev.lastEndH):null;
                 return(<div key={i}>
-                  {gap!==null&&gap>0.01&&<div style={{fontSize:10,color:C.amber,textAlign:"center",margin:"3px 0"}}>⏳ пауза {fmtH(gap)}</div>}
-                  {prev&&!sameDay&&<div style={{fontSize:10,color:C.sub,textAlign:"center",margin:"3px 0"}}>↓ следующий рабочий день</div>}
+                  {gap!==null&&gap>0.01&&<div style={{fontSize:10,color:C.amber,textAlign:"center",margin:"3px 0"}}>{tr("⏳ пауза")} {fmtH(gap)}</div>}
+                  {prev&&!sameDay&&<div style={{fontSize:10,color:C.sub,textAlign:"center",margin:"3px 0"}}>{tr("↓ следующий рабочий день")}</div>}
                   <div style={{border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
                     <div style={{width:28,height:28,borderRadius:8,background:st.staff.color,color:st.staff.textColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{st.staff.emoji}</div>
                     <div style={{flex:1,minWidth:0}}>
@@ -952,7 +991,7 @@ function SlotFinder({staff, bookings, onConfirm}) {
                   </div>
                 </div>);
               })}
-              <button onClick={doConfirm} style={{marginTop:6,padding:"12px 0",border:"none",borderRadius:9,background:C.green,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:14}}>✅ Подтвердить и внести в календарь</button>
+              <button onClick={doConfirm} style={{marginTop:6,padding:"12px 0",border:"none",borderRadius:9,background:C.green,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:14}}>{tr("✅ Подтвердить и внести в календарь")}</button>
             </div>
           </div>
         )}
@@ -961,8 +1000,8 @@ function SlotFinder({staff, bookings, onConfirm}) {
         {!options&&!confirmed&&!searching&&!notFound&&(
           <div style={{background:C.card,borderRadius:12,padding:"40px 20px",textAlign:"center",boxShadow:"0 1px 8px rgba(26,63,92,0.07)",color:C.muted}}>
             <div style={{fontSize:36,marginBottom:12,opacity:0.4}}>🔍</div>
-            <div style={{fontWeight:700,fontSize:14,color:C.primary,marginBottom:6}}>Добавьте мастеров и нажмите «Найти слоты»</div>
-            <div style={{fontSize:12,lineHeight:1.6}}>Каждый этап (мастер + работа + время)<br/>встанет во времени друг за другом</div>
+            <div style={{fontWeight:700,fontSize:14,color:C.primary,marginBottom:6}}>{tr("Добавьте мастеров и нажмите «Найти слоты»")}</div>
+            <div style={{fontSize:12,lineHeight:1.6}}>{tr("Каждый этап (мастер + работа + время)")}<br/>{tr("встанет во времени друг за другом")}</div>
           </div>
         )}
       </div>
@@ -1094,7 +1133,7 @@ function StaffSettings({staff,setStaff}){
 }
 
 // ── CLIENT DATABASE ─────────────────────────────────────────────────────────
-function L({children}){return <div style={{fontSize:11,fontWeight:600,color:C.muted,marginBottom:3}}>{children}</div>;}
+function L({children}){return <div style={{fontSize:11,fontWeight:600,color:C.muted,marginBottom:3}}>{tr(children)}</div>;}
 function Modal({title,onClose,children}){
   return(<div style={{position:"fixed",inset:0,background:"rgba(26,63,92,0.55)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:12,overflowY:"auto"}} onClick={onClose}>
     <div onClick={e=>e.stopPropagation()} style={{background:C.card,borderRadius:16,width:"100%",maxWidth:440,boxShadow:"0 8px 40px rgba(26,63,92,0.25)",margin:"auto"}}>
@@ -1123,7 +1162,7 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
   const [addC,setAddC]=useState(null);
   const [addCar,setAddCar]=useState(null);
   const [busy,setBusy]=useState(false);
-  const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>{t}</label>;
+  const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>{tr(t)}</label>;
   const load=(cb)=>apiGet('/directory').then(r=>{const l=r.clients||[];setDir(l);if(cb)cb(l);}).catch(()=>{});
   useEffect(()=>{load();},[]);
   const selClient=dir.find(c=>c.id===clientId);
@@ -1189,7 +1228,7 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
         </>}
         <div><L>Телефон</L><input value={addC.phone} onChange={e=>setAddC({...addC,phone:e.target.value})} placeholder="+66…" style={inp}/></div>
         <div><L>Email</L><input value={addC.email} onChange={e=>setAddC({...addC,email:e.target.value})} placeholder="Необязательно" style={inp}/></div>
-        <div style={{display:"flex",gap:8}}><button onClick={()=>setAddC(null)} style={ghost}>Отмена</button><button onClick={doAddClient} disabled={busy} style={prim}>Добавить</button></div>
+        <div style={{display:"flex",gap:8}}><button onClick={()=>setAddC(null)} style={ghost}>{tr("Отмена")}</button><button onClick={doAddClient} disabled={busy} style={prim}>Добавить</button></div>
       </div>
     </Modal>}
     {addCar&&<Modal title="Новая машина" onClose={()=>setAddCar(null)}>
@@ -1200,7 +1239,7 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
         </div>
         <div><L>VIN</L><input value={addCar.vin} onChange={e=>setAddCar({...addCar,vin:e.target.value})} placeholder="Необязательно" style={inp}/></div>
         <div><L>Гос. номер</L><input value={addCar.plate} onChange={e=>setAddCar({...addCar,plate:e.target.value})} placeholder="Необязательно" style={inp}/></div>
-        <div style={{display:"flex",gap:8}}><button onClick={()=>setAddCar(null)} style={ghost}>Отмена</button><button onClick={doAddCar} disabled={busy} style={prim}>Добавить</button></div>
+        <div style={{display:"flex",gap:8}}><button onClick={()=>setAddCar(null)} style={ghost}>{tr("Отмена")}</button><button onClick={doAddCar} disabled={busy} style={prim}>Добавить</button></div>
       </div>
     </Modal>}
   </div>);
@@ -1360,7 +1399,7 @@ function ClientBase(){
         <div><L>Мессенджер (Telegram/WhatsApp)</L><input value={clientForm.messenger} onChange={e=>setClientForm({...clientForm,messenger:e.target.value})} placeholder="@username / +66..." style={inp}/></div>
         <div><L>Заметка</L><textarea value={clientForm.note} onChange={e=>setClientForm({...clientForm,note:e.target.value})} rows={2} placeholder="Доп. информация" style={{...inp,resize:"vertical"}}/></div>
         <div style={{display:"flex",gap:8,marginTop:4}}>
-          <button onClick={()=>setClientForm(null)} style={{...btn("#F0F4F8",C.primary),flex:1}}>Отмена</button>
+          <button onClick={()=>setClientForm(null)} style={{...btn("#F0F4F8",C.primary),flex:1}}>{tr("Отмена")}</button>
           <button onClick={saveClient} disabled={busy} style={{...btn(C.primary,"#fff"),flex:2,opacity:busy?0.6:1}}>{busy?"…":"Сохранить"}</button>
         </div>
       </div>
@@ -1386,7 +1425,7 @@ function ClientBase(){
         </div>
         <div><L>Кузов</L><input value={carForm.bodytype} onChange={e=>setCarForm({...carForm,bodytype:e.target.value})} placeholder="Sedan / SUV" style={inp}/></div>
         <div style={{display:"flex",gap:8,marginTop:4}}>
-          <button onClick={()=>setCarForm(null)} style={{...btn("#F0F4F8",C.primary),flex:1}}>Отмена</button>
+          <button onClick={()=>setCarForm(null)} style={{...btn("#F0F4F8",C.primary),flex:1}}>{tr("Отмена")}</button>
           <button onClick={saveCar} disabled={busy} style={{...btn(C.primary,"#fff"),flex:2,opacity:busy?0.6:1}}>{busy?"…":"Сохранить"}</button>
         </div>
       </div>
@@ -1397,7 +1436,7 @@ function ClientBase(){
         <div style={{fontSize:12,color:C.muted}}>Дубли определяются по имя+телефон (клиент) и VIN / гос.номеру (машина).</div>
         <button onClick={()=>doImport('add')} disabled={busy} style={{padding:"11px 0",border:"none",borderRadius:8,background:C.primary,color:"#fff",fontWeight:700,cursor:"pointer",opacity:busy?0.6:1}}>➕ Добавить только новые</button>
         <button onClick={()=>doImport('upsert')} disabled={busy} style={{padding:"11px 0",border:`1.5px solid ${C.sub}`,borderRadius:8,background:"#EAF2FF",color:C.sub,fontWeight:700,cursor:"pointer",opacity:busy?0.6:1}}>🔄 Добавить + обновить совпавших</button>
-        <button onClick={()=>setImp(null)} style={{padding:"9px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,fontWeight:600,cursor:"pointer"}}>Отмена</button>
+        <button onClick={()=>setImp(null)} style={{padding:"9px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,fontWeight:600,cursor:"pointer"}}>{tr("Отмена")}</button>
       </div>
     </Modal>}
   </div>);
