@@ -515,10 +515,11 @@ function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
 
 // ── DAY BAR ───────────────────────────────────────────────────────────────────
 function DayBar({staff,date,bookings,onSlotClick,compact=false}){
+  const t=useT();
   const dow=(date.getDay()+6)%7+1,works=staff.workDays.includes(dow);
   const slots=buildSlots(staff),total=DAY_END-DAY_START;
   const isPast=date<today()&&!isSameDay(date,today());
-  if(!works)return(<div style={{height:compact?18:26,background:"#F2F2F2",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:8,color:C.muted,fontStyle:"italic"}}>выходной</span></div>);
+  if(!works)return(<div style={{height:compact?18:26,background:"#F2F2F2",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:8,color:C.muted,fontStyle:"italic"}}>{t("выходной","day off")}</span></div>);
   return(<div style={{position:"relative",height:compact?18:30,background:"#EEF2F6",borderRadius:4,overflow:"hidden"}}>
     <div style={{position:"absolute",left:`${(12-DAY_START)/total*100}%`,width:`${1/total*100}%`,top:0,bottom:0,background:"#D3D1C7",zIndex:1}}/>
     {slots.map(sl=>{
@@ -601,6 +602,7 @@ function MonthView({staff,bookings,onDayClick,currentDate,activeStaffId}){
 
 // ── WEEK VIEW ─────────────────────────────────────────────────────────────────
 function WeekView({weekStart,staff,bookings,onDayClick,onSlotClick,activeStaffId}){
+  const t=useT();
   const days=Array.from({length:7},(_,i)=>addDays(weekStart,i));
   const td=today(),filtered=activeStaffId==="all"?staff:staff.filter(s=>s.id===activeStaffId);
   return(<div style={{overflowX:"auto"}}>
@@ -626,7 +628,7 @@ function WeekView({weekStart,staff,bookings,onDayClick,onSlotClick,activeStaffId
           return(<div key={di} onClick={()=>works&&!isPast&&onDayClick(d)}
             style={{borderBottom:`1px solid ${C.border}`,borderRight:`1px solid ${C.border}`,padding:"7px 8px",background:bg,minHeight:84,display:"flex",flexDirection:"column",cursor:works&&!isPast?"pointer":"default"}}>
             {!works?(
-              <div style={{margin:"auto",fontSize:11,color:C.muted,fontStyle:"italic"}}>выходной</div>
+              <div style={{margin:"auto",fontSize:11,color:C.muted,fontStyle:"italic"}}>{t("выходной","day off")}</div>
             ):items.length===0?null:(
               <div style={{display:"flex",flexDirection:"column",gap:5}}>
                 {items.map(({sl,bk})=>{
@@ -651,6 +653,7 @@ function WeekView({weekStart,staff,bookings,onDayClick,onSlotClick,activeStaffId
 
 // ── DAY VIEW ──────────────────────────────────────────────────────────────────
 function DayView({date,staff,bookings,onSlotClick,activeStaffId}){
+  const t=useT();
   const dow=(date.getDay()+6)%7+1;
   const filtered=(activeStaffId==="all"?staff:staff.filter(s=>s.id===activeStaffId)).filter(s=>s.workDays.includes(dow));
   if(!filtered.length)return<div style={{textAlign:"center",padding:40,color:C.muted,fontSize:14}}>В этот день никто не работает</div>;
@@ -666,7 +669,7 @@ function DayView({date,staff,bookings,onSlotClick,activeStaffId}){
           <div style={{fontSize:20}}>{s.emoji}</div>
           <div style={{fontSize:12,fontWeight:700,color:s.textColor}}>{s.name}</div>
           <div style={{fontSize:9,color:s.textColor,opacity:0.75}}>{s.role}</div>
-          <div style={{marginTop:5,fontSize:9,color:s.textColor,opacity:0.9}}>{booked}/{slots.length} слотов</div>
+          <div style={{marginTop:5,fontSize:9,color:s.textColor,opacity:0.9}}>{booked}/{slots.length} {t("слотов","slots")}</div>
           <div style={{height:3,borderRadius:2,background:"rgba(0,0,0,0.15)",marginTop:3}}>
             <div style={{height:"100%",width:`${booked/Math.max(slots.length,1)*100}%`,background:"rgba(0,0,0,0.35)",borderRadius:2}}/>
           </div>
@@ -679,7 +682,7 @@ function DayView({date,staff,bookings,onSlotClick,activeStaffId}){
         </div>)}
         {HOURS.slice(0,-1).map(h=><div key={h+.5} style={{position:"absolute",top:toPx(h+.5),left:44,right:0,borderTop:"1px dotted #EEF2F6",zIndex:1}}/>)}
         <div style={{position:"absolute",top:toPx(12),left:44,right:0,height:PPH,background:"rgba(211,209,199,0.18)",zIndex:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <span style={{fontSize:9,color:C.muted,fontStyle:"italic"}}>Обед</span>
+          <span style={{fontSize:9,color:C.muted,fontStyle:"italic"}}>{t("Обед","Lunch")}</span>
         </div>
       </div>
       {filtered.map(s=>{
@@ -703,12 +706,12 @@ function DayView({date,staff,bookings,onSlotClick,activeStaffId}){
                 {bk?(<>
                   {bk.car&&<div style={{...clamp2,fontSize:10,fontWeight:800,color:C.primary,lineHeight:1.2}}>{bk.car}</div>}
                   <div style={{...clamp2,fontSize:9,color:C.muted,lineHeight:1.2}}>{bk.client}{isCont?" ⛓":""}</div>
-                  <div style={{...clamp2,fontSize:8,fontWeight:700,color:sc,lineHeight:1.2}}>{bk.status==="confirmed"?"✅":bk.status==="pending"?"⏳":"❌"} {isCont?"Продолжение":bk.work}</div>
+                  <div style={{...clamp2,fontSize:8,fontWeight:700,color:sc,lineHeight:1.2}}>{bk.status==="confirmed"?"✅":bk.status==="pending"?"⏳":"❌"} {isCont?t("Продолжение","Continuation"):bk.work}</div>
                 </>):(<>
                   <div style={{...clamp2,fontSize:9,fontWeight:700,color:sl.textColor,lineHeight:1.25}}>{sl.label}</div>
                   <div style={{fontSize:8,color:sl.textColor,opacity:0.7}}>{fmt(sl.start)}–{fmt(sl.end)}</div>
                   <div style={{fontSize:8,color:sl.textColor,opacity:sl.eff?0.7:0.4,fontStyle:sl.eff?"normal":"italic"}}>
-                    {sl.eff?"▸ Нажмите чтобы записать":"Буфер / надзор"}
+                    {sl.eff?t("▸ Нажмите чтобы записать","▸ Click to book"):t("Буфер / надзор","Buffer / supervision")}
                   </div>
                 </>)}
               </div>
