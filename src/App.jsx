@@ -49,6 +49,43 @@ const DICT = {
   "Клиентов":"Clients","найдено":"found","Загрузка…":"Loading…","мин":"min","ч":"h",
   "Себест.":"Cost","Прибыль":"Profit","Пока нет позиций — нажмите":"No items yet — press",
   "Пока пусто":"Empty for now","дн":"d",
+  // статусы
+  "✅ Подтверждён":"✅ Confirmed","⏳ Ожидание":"⏳ Pending","❌ Отменён":"❌ Cancelled",
+  "норма":"norm","цель":"target","перегруз":"overload",
+  // алерты
+  "Введите имя клиента":"Enter client name","Введите имя":"Enter a name",
+  "Удалить клиента и все его машины?":"Delete client and all their vehicles?","Удалить машину?":"Delete vehicle?",
+  // База клиентов
+  "Клиентов:":"Clients:","Машин пока нет":"No vehicles yet",
+  "База пуста — введите имя, чтобы добавить":"Base is empty — type a name to add",
+  "＋ Добавить машину":"＋ Add vehicle","Компания":"Company",
+  "➕ Добавить только новые":"➕ Add only new","🔄 Добавить + обновить совпавших":"🔄 Add + update matches",
+  "Загрузка из Excel":"Import from Excel","В файле:":"In file:","клиентов,":"clients,","машин.":"vehicles.",
+  // Джоб-карта
+  "Услуги":"Services","Запчасти":"Parts","Позиция":"Item","Техник":"Technician","Метки":"Labels",
+  "Кол-во/ч":"Qty/Hrs","Ставка":"Rate","Налог":"Tax","Скидка":"Disc.","Сумма":"Subtotal","Итого":"Total",
+  "Назначить":"Assign","＋ Метка":"＋ Label","＋ Услуга":"＋ Service","＋ Запчасть":"＋ Part","Поиск…":"Search…",
+  "Клиент и машина":"Client & vehicle","Адрес счёта":"Billing address","Адрес доставки":"Delivery address","не указан":"not set",
+  "📝 Ремарки клиента и рекомендации":"📝 Customer remarks & recommendations",
+  "Пожелания клиента, рекомендации сервиса, инструкции…":"Customer wishes, shop recommendations, instructions…",
+  "📝 Черновик":"📝 Draft","➡ Приёмка":"➡ Check in","📤 Выдача":"📤 Check out","Открыта":"Open","Джоб-карта":"Job card","(новая)":"(new)",
+  "Всего":"Total amount","🛒 Себестоимость":"🛒 Cost","Оплата по счёту":"Invoice payment","Оплатить":"Pay","Авторизации 1":"Authorizations 1",
+  // Настройки / прочее
+  "Настройки команды":"Team settings","Дней/нед":"Days/wk","Ч/день":"Hrs/day","Обед ч":"Lunch h","Обед":"Lunch",
+  "рабочий":"work","буфер":"buffer","ч":"h","мин":"min",
+  "Необязательно":"Optional","Иван Иванов":"John Doe","ООО «Ромашка»":"Acme LLC","Доп. информация":"Extra info",
+  "Машина":"Vehicle","Название":"Name","Начало":"Start","Дл-сть":"Dur.","До":"End","Цвет":"Color","Эфф":"Eff",
+  "Ошибка импорта: ":"Import error: ","неизвестно":"unknown","Не удалось прочитать файл: ":"Couldn't read file: ",
+  "Не удалось добавить клиента":"Couldn't add client","Не удалось добавить машину":"Couldn't add vehicle",
+  "В файле не найдено клиентов. Нужна колонка «Customer» (или «Company Name»).":"No clients found in file. A “Customer” (or “Company Name”) column is required.",
+  "НДС [7%]":"VAT [7%]","Authorised (сумма)":"Authorised","📈 Прибыль":"📈 Profit","Загрузка базы…":"Loading base…",
+  "Дубли определяются по имя+телефон (клиент) и VIN / гос.номеру (машина).":"Duplicates: by name+phone (client) and VIN / plate (vehicle).",
+  "Ничего не найдено":"Nothing found","Компания":"Company","Заметка":"Note","Добавить":"Add",
+  "Услуга":"Service","Запчасть":"Part","📈 Прибыль":"📈 Profit",
+  "📊 Нагрузка команды":"📊 Team load","＋ Сотрудник":"＋ Technician","ИТОГО":"TOTAL","Сотрудник":"Technician",
+  "Дней":"Days","Раб.ч/нед":"Work h/wk","Эфф.ч/нед":"Eff h/wk","Эфф.ч/мес":"Eff h/mo","КПД":"Efficiency",
+  "Новый слот":"New slot","Новый":"New","Работа":"Work",
+  "Название":"Name","Начало":"Start","Дл-сть":"Dur.","До":"End","Цвет":"Color","Эфф":"Eff",
 };
 const tr = ru => (LANG==='en' && DICT[ru]) ? DICT[ru] : ru;
 const C = { bg:"#F4F7FA",card:"#fff",primary:"#1A3F5C",sub:"#2D6A9F",border:"#E0E8F0",muted:"#6B8090",red:"#E74C3C",green:"#27AE60",amber:"#F39C12" };
@@ -431,7 +468,7 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
             onChange={p=>{if('client'in p)setClient(p.client);if('car'in p)setCar(p.car);if('clientId'in p)setClientId(p.clientId);if('carId'in p)setCarId(p.carId);}}/>
           <div>{lb("Заметки")}<textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2} style={{...inp,resize:"vertical"}}/></div>
           <div>{lb("Статус")}<div style={{display:"flex",gap:6}}>
-            {[["confirmed","✅ Подтверждён",C.green],["pending","⏳ Ожидание",C.amber],["cancelled","❌ Отменён",C.red]].map(([v,l,col])=>(
+            {[["confirmed",tr("✅ Подтверждён"),C.green],["pending",tr("⏳ Ожидание"),C.amber],["cancelled",tr("❌ Отменён"),C.red]].map(([v,l,col])=>(
               <button key={v} onClick={()=>setStatus(v)} style={{flex:1,padding:"6px 2px",border:`2px solid ${status===v?col:C.border}`,borderRadius:7,background:status===v?col+"22":"transparent",color:status===v?col:C.muted,fontSize:10,fontWeight:600,cursor:"pointer"}}>{l}</button>
             ))}
           </div></div>
@@ -536,7 +573,7 @@ function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
             onChange={p=>{if('client'in p)setClient(p.client);if('car'in p)setCar(p.car);if('clientId'in p)setClientId(p.clientId);if('carId'in p)setCarId(p.carId);}}/>
           <div>{lb("Заметки")}<textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2} style={{...inp,resize:"vertical"}}/></div>
           <div>{lb("Статус")}<div style={{display:"flex",gap:5}}>
-            {[["confirmed","✅ Подтверждён",C.green],["pending","⏳ Ожидание",C.amber],["cancelled","❌ Отменён",C.red]].map(([v,l,col])=>(
+            {[["confirmed",tr("✅ Подтверждён"),C.green],["pending",tr("⏳ Ожидание"),C.amber],["cancelled",tr("❌ Отменён"),C.red]].map(([v,l,col])=>(
               <button key={v} onClick={()=>setStatus(v)} style={{flex:1,padding:"5px 2px",border:`2px solid ${status===v?col:C.border}`,borderRadius:7,background:status===v?col+"22":"transparent",color:status===v?col:C.muted,fontSize:9,fontWeight:600,cursor:"pointer"}}>{l}</button>
             ))}
           </div></div>
@@ -921,7 +958,7 @@ function SlotFinder({staff, bookings, onConfirm}) {
 
             {/* Статус */}
             <div>{lb("Статус")}<div style={{display:"flex",gap:6}}>
-              {[["confirmed","✅ Подтверждён",C.green],["pending","⏳ Ожидание",C.amber],["cancelled","❌ Отменён",C.red]].map(([v,l,col])=>(
+              {[["confirmed",tr("✅ Подтверждён"),C.green],["pending",tr("⏳ Ожидание"),C.amber],["cancelled",tr("❌ Отменён"),C.red]].map(([v,l,col])=>(
                 <button key={v} onClick={()=>setStatus(v)} style={{flex:1,padding:"6px 2px",border:`2px solid ${status===v?col:C.border}`,borderRadius:7,background:status===v?col+"22":"transparent",color:status===v?col:C.muted,fontSize:10,fontWeight:600,cursor:"pointer"}}>{l}</button>
               ))}
             </div></div>
@@ -1026,10 +1063,10 @@ function StaffSettings({staff,setStaff}){
   return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
     <div style={{background:C.card,borderRadius:12,overflow:"hidden",boxShadow:"0 1px 8px rgba(26,63,92,0.07)"}}>
       <div style={{background:C.primary,padding:"9px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <span style={{color:"#fff",fontWeight:700,fontSize:13}}>📊 Нагрузка команды</span>
+        <span style={{color:"#fff",fontWeight:700,fontSize:13}}>{tr("📊 Нагрузка команды")}</span>
         <div style={{display:"flex",gap:10,alignItems:"center"}}>
           <span style={{color:"#FBC84A",fontWeight:700,fontSize:11}}>КПД {aKpd}% · {tEW.toFixed(1)}ч/нед</span>
-          <button onClick={addStaff} style={{padding:"4px 10px",background:"rgba(255,255,255,0.15)",border:"none",borderRadius:6,color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700}}>＋ Сотрудник</button>
+          <button onClick={addStaff} style={{padding:"4px 10px",background:"rgba(255,255,255,0.15)",border:"none",borderRadius:6,color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700}}>{tr("＋ Сотрудник")}</button>
         </div>
       </div>
       <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -1051,7 +1088,7 @@ function StaffSettings({staff,setStaff}){
             </tr>
           );})}
           <tr style={{background:C.primary}}>
-            <td colSpan={2} style={TD({color:"#fff",fontWeight:700,textAlign:"left"})}>ИТОГО</td>
+            <td colSpan={2} style={TD({color:"#fff",fontWeight:700,textAlign:"left"})}>{tr("ИТОГО")}</td>
             <td colSpan={2} style={TD({color:"#fff"})}/>
             <td style={TD({color:"#fff",fontWeight:700})}>{stats.reduce((a,s)=>a+s.wh,0)}ч</td>
             <td style={TD({color:"#7DC8A8",fontWeight:800})}>{tEW.toFixed(1)}ч</td>
@@ -1182,7 +1219,7 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
   return(<div style={{display:"flex",flexDirection:"column",gap:10}}>
     <div style={{position:"relative"}}>
       {lb("Клиент *")}
-      <input value={client} autoFocus={autoFocus} placeholder="Начните вводить имя…"
+      <input value={client} autoFocus={autoFocus} placeholder={tr("Начните вводить имя…")}
         onChange={e=>onChange({client:e.target.value,clientId:null,car:"",carId:null})}
         onFocus={()=>setOpen(true)} onBlur={()=>setTimeout(()=>setOpen(false),160)} style={inp}/>
       {clientId?<div style={{fontSize:10,color:C.green,fontWeight:700,marginTop:2}}>✓ выбран из базы</div>:null}
@@ -1211,35 +1248,35 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
         <input value={car} onChange={e=>onChange({car:e.target.value,carId:null})} placeholder="BMW X3… (или выберите клиента)" style={inp}/>
       )}
     </div>
-    {addC&&<Modal title="Новый клиент" onClose={()=>setAddC(null)}>
+    {addC&&<Modal title={tr("Новый клиент")} onClose={()=>setAddC(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
         <div><L>Тип клиента</L>
           <div style={{display:"flex",gap:8}}>
-            {[["individual","👤 Индивидуальный"],["company","🏢 Компания"]].map(([v,l])=>(
+            {[["individual",tr("👤 Индивидуальный")],["company",tr("🏢 Компания")]].map(([v,l])=>(
               <button key={v} type="button" onClick={()=>setAddC({...addC,type:v})} style={{flex:1,padding:"8px 6px",border:`2px solid ${addC.type===v?C.primary:C.border}`,borderRadius:8,background:addC.type===v?"#EAF2FF":"transparent",color:addC.type===v?C.primary:C.muted,fontSize:12,fontWeight:700,cursor:"pointer"}}>{l}</button>
             ))}
           </div>
         </div>
-        <div><L>{addC.type==="company"?"Название компании *":"Имя *"}</L><input autoFocus value={addC.name} onChange={e=>setAddC({...addC,name:e.target.value})} placeholder={addC.type==="company"?"ООО «Ромашка»":""} style={inp}/></div>
+        <div><L>{addC.type==="company"?"Название компании *":"Имя *"}</L><input autoFocus value={addC.name} onChange={e=>setAddC({...addC,name:e.target.value})} placeholder={addC.type==="company"?tr("ООО «Ромашка»"):""} style={inp}/></div>
         {addC.type==="company"&&<>
           <div><L>Контактное лицо</L><input value={addC.contactPerson} onChange={e=>setAddC({...addC,contactPerson:e.target.value})} placeholder="Имя представителя" style={inp}/></div>
-          <div><L>Налоговый номер</L><input value={addC.taxNumber} onChange={e=>setAddC({...addC,taxNumber:e.target.value})} placeholder="Необязательно" style={inp}/></div>
-          <div><L>Адрес компании</L><textarea value={addC.companyAddress} onChange={e=>setAddC({...addC,companyAddress:e.target.value})} rows={2} placeholder="Необязательно" style={{...inp,resize:"vertical"}}/></div>
+          <div><L>Налоговый номер</L><input value={addC.taxNumber} onChange={e=>setAddC({...addC,taxNumber:e.target.value})} placeholder={tr("Необязательно")} style={inp}/></div>
+          <div><L>Адрес компании</L><textarea value={addC.companyAddress} onChange={e=>setAddC({...addC,companyAddress:e.target.value})} rows={2} placeholder={tr("Необязательно")} style={{...inp,resize:"vertical"}}/></div>
         </>}
         <div><L>Телефон</L><input value={addC.phone} onChange={e=>setAddC({...addC,phone:e.target.value})} placeholder="+66…" style={inp}/></div>
-        <div><L>Email</L><input value={addC.email} onChange={e=>setAddC({...addC,email:e.target.value})} placeholder="Необязательно" style={inp}/></div>
-        <div style={{display:"flex",gap:8}}><button onClick={()=>setAddC(null)} style={ghost}>{tr("Отмена")}</button><button onClick={doAddClient} disabled={busy} style={prim}>Добавить</button></div>
+        <div><L>Email</L><input value={addC.email} onChange={e=>setAddC({...addC,email:e.target.value})} placeholder={tr("Необязательно")} style={inp}/></div>
+        <div style={{display:"flex",gap:8}}><button onClick={()=>setAddC(null)} style={ghost}>{tr("Отмена")}</button><button onClick={doAddClient} disabled={busy} style={prim}>{tr("Добавить")}</button></div>
       </div>
     </Modal>}
-    {addCar&&<Modal title="Новая машина" onClose={()=>setAddCar(null)}>
+    {addCar&&<Modal title={tr("Новая машина")} onClose={()=>setAddCar(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
           <div><L>Марка</L><input autoFocus value={addCar.make} onChange={e=>setAddCar({...addCar,make:e.target.value})} placeholder="BMW" style={inp}/></div>
           <div><L>Модель</L><input value={addCar.model} onChange={e=>setAddCar({...addCar,model:e.target.value})} placeholder="330i" style={inp}/></div>
         </div>
-        <div><L>VIN</L><input value={addCar.vin} onChange={e=>setAddCar({...addCar,vin:e.target.value})} placeholder="Необязательно" style={inp}/></div>
-        <div><L>Гос. номер</L><input value={addCar.plate} onChange={e=>setAddCar({...addCar,plate:e.target.value})} placeholder="Необязательно" style={inp}/></div>
-        <div style={{display:"flex",gap:8}}><button onClick={()=>setAddCar(null)} style={ghost}>{tr("Отмена")}</button><button onClick={doAddCar} disabled={busy} style={prim}>Добавить</button></div>
+        <div><L>VIN</L><input value={addCar.vin} onChange={e=>setAddCar({...addCar,vin:e.target.value})} placeholder={tr("Необязательно")} style={inp}/></div>
+        <div><L>Гос. номер</L><input value={addCar.plate} onChange={e=>setAddCar({...addCar,plate:e.target.value})} placeholder={tr("Необязательно")} style={inp}/></div>
+        <div style={{display:"flex",gap:8}}><button onClick={()=>setAddCar(null)} style={ghost}>{tr("Отмена")}</button><button onClick={doAddCar} disabled={busy} style={prim}>{tr("Добавить")}</button></div>
       </div>
     </Modal>}
   </div>);
@@ -1335,24 +1372,24 @@ function ClientBase(){
   };
   const btn=(bg,color)=>({padding:"8px 12px",fontSize:12,fontWeight:700,border:"none",borderRadius:8,cursor:"pointer",background:bg,color});
 
-  if(loading)return<div style={{padding:40,textAlign:"center",color:C.muted}}>Загрузка базы…</div>;
+  if(loading)return<div style={{padding:40,textAlign:"center",color:C.muted}}>{tr("Загрузка базы…")}</div>;
 
   return(<div style={{maxWidth:900,margin:"0 auto"}}>
     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
-      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="🔍 Поиск: имя, телефон, машина, VIN, номер…" style={{...inp,flex:1,minWidth:220}}/>
-      <button onClick={()=>setClientForm({name:"",phone:"",email:"",messenger:"",note:"",type:"individual",contactPerson:"",taxNumber:"",companyAddress:""})} style={btn(C.primary,"#fff")}>＋ Клиент</button>
-      <button onClick={exportXlsx} style={btn("#E8F5E9",C.green)}>⬇ Скачать Excel</button>
-      <button onClick={()=>fileRef.current&&fileRef.current.click()} style={btn("#EAF2FF",C.sub)}>⬆ Загрузить Excel</button>
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder={tr("🔍 Поиск: имя, телефон, машина, VIN, номер…")} style={{...inp,flex:1,minWidth:220}}/>
+      <button onClick={()=>setClientForm({name:"",phone:"",email:"",messenger:"",note:"",type:"individual",contactPerson:"",taxNumber:"",companyAddress:""})} style={btn(C.primary,"#fff")}>{tr("＋ Клиент")}</button>
+      <button onClick={exportXlsx} style={btn("#E8F5E9",C.green)}>{tr("⬇ Скачать Excel")}</button>
+      <button onClick={()=>fileRef.current&&fileRef.current.click()} style={btn("#EAF2FF",C.sub)}>{tr("⬆ Загрузить Excel")}</button>
       <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onFile} style={{display:"none"}}/>
     </div>
     <div style={{fontSize:12,color:C.muted,marginBottom:10}}>Клиентов: {clients.length}{q?` · найдено: ${filtered.length}`:""}</div>
-    {filtered.length===0?<div style={{padding:30,textAlign:"center",color:C.muted}}>Ничего не найдено</div>:
+    {filtered.length===0?<div style={{padding:30,textAlign:"center",color:C.muted}}>{tr("Ничего не найдено")}</div>:
     filtered.map(c=>{
       const open=expanded===c.id;
       return(<div key={c.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,marginBottom:8,overflow:"hidden"}}>
         <div style={{padding:"10px 12px",display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>setExpanded(open?null:c.id)}>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:14,fontWeight:700,color:C.primary}}>{c.type==="company"?"🏢 ":""}{c.name}{c.type==="company"?<span style={{marginLeft:6,fontSize:9,fontWeight:700,color:C.sub,background:"#EAF2FF",borderRadius:4,padding:"1px 6px",verticalAlign:"middle"}}>Компания</span>:null}</div>
+            <div style={{fontSize:14,fontWeight:700,color:C.primary}}>{c.type==="company"?"🏢 ":""}{c.name}{c.type==="company"?<span style={{marginLeft:6,fontSize:9,fontWeight:700,color:C.sub,background:"#EAF2FF",borderRadius:4,padding:"1px 6px",verticalAlign:"middle"}}>{tr("Компания")}</span>:null}</div>
             <div style={{fontSize:11,color:C.muted,marginTop:1}}>{c.phone?`📞 ${c.phone}`:""}{c.phone&&c.email?"  ·  ":""}{c.email?`✉ ${c.email}`:""}{(c.phone||c.email)&&c.messenger?"  ·  ":""}{c.messenger?`💬 ${c.messenger}`:""}{c.type==="company"&&c.contactPerson?`  ·  👤 ${c.contactPerson}`:""}</div>
           </div>
           <div style={{fontSize:11,color:C.sub,fontWeight:600,whiteSpace:"nowrap"}}>🚗 {c.cars.length}</div>
@@ -1364,7 +1401,7 @@ function ClientBase(){
           {c.type==="company"&&(c.taxNumber||c.companyAddress)?<div style={{fontSize:12,color:C.muted,margin:"8px 0"}}>{c.taxNumber?<div>🧾 Налоговый №: {c.taxNumber}</div>:null}{c.companyAddress?<div>📍 {c.companyAddress}</div>:null}</div>:null}
           {c.note?<div style={{fontSize:12,color:C.muted,margin:"8px 0",fontStyle:"italic"}}>📝 {c.note}</div>:null}
           <div style={{marginTop:8}}>
-            {c.cars.length===0&&<div style={{fontSize:12,color:C.muted,marginBottom:6}}>Машин пока нет</div>}
+            {c.cars.length===0&&<div style={{fontSize:12,color:C.muted,marginBottom:6}}>{tr("Машин пока нет")}</div>}
             {c.cars.map(car=>(<div key={car.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",background:C.bg,borderRadius:8,marginBottom:5}}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:600,color:C.primary}}>{[car.make,car.model,car.submodel].filter(Boolean).join(" ")||"—"}{car.year?` · ${car.year}`:""}</div>
@@ -1374,28 +1411,28 @@ function ClientBase(){
               <button onClick={()=>setCarForm({id:car.id,client_id:c.id,make:car.make||"",model:car.model||"",submodel:car.submodel||"",year:car.year||"",fuel:car.fuel||"",vin:car.vin||"",plate:car.plate||"",drivetrain:car.drivetrain||"",transmission:car.transmission||"",bodytype:car.bodytype||""})} style={{...btn("transparent",C.sub),padding:"4px 7px"}}>✎</button>
               <button onClick={()=>delCar(car.id)} style={{...btn("transparent",C.red),padding:"4px 7px"}}>🗑</button>
             </div>))}
-            <button onClick={()=>setCarForm({client_id:c.id,make:"",model:"",submodel:"",year:"",fuel:"",vin:"",plate:"",drivetrain:"",transmission:"",bodytype:""})} style={{...btn("#EAF2FF",C.sub),marginTop:4}}>＋ Машина</button>
+            <button onClick={()=>setCarForm({client_id:c.id,make:"",model:"",submodel:"",year:"",fuel:"",vin:"",plate:"",drivetrain:"",transmission:"",bodytype:""})} style={{...btn("#EAF2FF",C.sub),marginTop:4}}>{tr("＋ Машина")}</button>
           </div>
         </div>}
       </div>);
     })}
-    {clientForm&&<Modal onClose={()=>setClientForm(null)} title={clientForm.id?"Редактировать клиента":"Новый клиент"}>
+    {clientForm&&<Modal onClose={()=>setClientForm(null)} title={clientForm.id?tr("Редактировать клиента"):tr("Новый клиент")}>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
         <div><L>Тип клиента</L>
           <div style={{display:"flex",gap:8}}>
-            {[["individual","👤 Индивидуальный"],["company","🏢 Компания"]].map(([v,l])=>(
+            {[["individual",tr("👤 Индивидуальный")],["company",tr("🏢 Компания")]].map(([v,l])=>(
               <button key={v} type="button" onClick={()=>setClientForm({...clientForm,type:v})} style={{flex:1,padding:"8px 6px",border:`2px solid ${clientForm.type===v?C.primary:C.border}`,borderRadius:8,background:clientForm.type===v?"#EAF2FF":"transparent",color:clientForm.type===v?C.primary:C.muted,fontSize:12,fontWeight:700,cursor:"pointer"}}>{l}</button>
             ))}
           </div>
         </div>
-        <div><L>{clientForm.type==="company"?"Название компании *":"Имя *"}</L><input autoFocus value={clientForm.name} onChange={e=>setClientForm({...clientForm,name:e.target.value})} placeholder={clientForm.type==="company"?"ООО «Ромашка»":"Иван Иванов"} style={inp}/></div>
+        <div><L>{clientForm.type==="company"?"Название компании *":"Имя *"}</L><input autoFocus value={clientForm.name} onChange={e=>setClientForm({...clientForm,name:e.target.value})} placeholder={clientForm.type==="company"?tr("ООО «Ромашка»"):tr("Иван Иванов")} style={inp}/></div>
         {clientForm.type==="company"&&<>
           <div><L>Контактное лицо</L><input value={clientForm.contactPerson} onChange={e=>setClientForm({...clientForm,contactPerson:e.target.value})} placeholder="Имя представителя" style={inp}/></div>
-          <div><L>Налоговый номер</L><input value={clientForm.taxNumber} onChange={e=>setClientForm({...clientForm,taxNumber:e.target.value})} placeholder="Необязательно" style={inp}/></div>
-          <div><L>Адрес компании</L><textarea value={clientForm.companyAddress} onChange={e=>setClientForm({...clientForm,companyAddress:e.target.value})} rows={2} placeholder="Необязательно" style={{...inp,resize:"vertical"}}/></div>
+          <div><L>Налоговый номер</L><input value={clientForm.taxNumber} onChange={e=>setClientForm({...clientForm,taxNumber:e.target.value})} placeholder={tr("Необязательно")} style={inp}/></div>
+          <div><L>Адрес компании</L><textarea value={clientForm.companyAddress} onChange={e=>setClientForm({...clientForm,companyAddress:e.target.value})} rows={2} placeholder={tr("Необязательно")} style={{...inp,resize:"vertical"}}/></div>
         </>}
         <div><L>Телефон</L><input value={clientForm.phone} onChange={e=>setClientForm({...clientForm,phone:e.target.value})} placeholder="+66 ..." style={inp}/></div>
-        <div><L>Email</L><input value={clientForm.email} onChange={e=>setClientForm({...clientForm,email:e.target.value})} placeholder="Необязательно" style={inp}/></div>
+        <div><L>Email</L><input value={clientForm.email} onChange={e=>setClientForm({...clientForm,email:e.target.value})} placeholder={tr("Необязательно")} style={inp}/></div>
         <div><L>Мессенджер (Telegram/WhatsApp)</L><input value={clientForm.messenger} onChange={e=>setClientForm({...clientForm,messenger:e.target.value})} placeholder="@username / +66..." style={inp}/></div>
         <div><L>Заметка</L><textarea value={clientForm.note} onChange={e=>setClientForm({...clientForm,note:e.target.value})} rows={2} placeholder="Доп. информация" style={{...inp,resize:"vertical"}}/></div>
         <div style={{display:"flex",gap:8,marginTop:4}}>
@@ -1404,19 +1441,19 @@ function ClientBase(){
         </div>
       </div>
     </Modal>}
-    {carForm&&<Modal onClose={()=>setCarForm(null)} title={carForm.id?"Редактировать машину":"Новая машина"}>
+    {carForm&&<Modal onClose={()=>setCarForm(null)} title={carForm.id?tr("Редактировать машину"):tr("Новая машина")}>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
           <div><L>Марка</L><input autoFocus value={carForm.make} onChange={e=>setCarForm({...carForm,make:e.target.value})} placeholder="BMW" style={inp}/></div>
           <div><L>Модель</L><input value={carForm.model} onChange={e=>setCarForm({...carForm,model:e.target.value})} placeholder="330i" style={inp}/></div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          <div><L>Подмодель</L><input value={carForm.submodel} onChange={e=>setCarForm({...carForm,submodel:e.target.value})} placeholder="Необязательно" style={inp}/></div>
+          <div><L>Подмодель</L><input value={carForm.submodel} onChange={e=>setCarForm({...carForm,submodel:e.target.value})} placeholder={tr("Необязательно")} style={inp}/></div>
           <div><L>Год</L><input value={carForm.year} onChange={e=>setCarForm({...carForm,year:e.target.value})} placeholder="2020" style={inp}/></div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          <div><L>Гос. номер</L><input value={carForm.plate} onChange={e=>setCarForm({...carForm,plate:e.target.value})} placeholder="Необязательно" style={inp}/></div>
-          <div><L>VIN</L><input value={carForm.vin} onChange={e=>setCarForm({...carForm,vin:e.target.value})} placeholder="Необязательно" style={inp}/></div>
+          <div><L>Гос. номер</L><input value={carForm.plate} onChange={e=>setCarForm({...carForm,plate:e.target.value})} placeholder={tr("Необязательно")} style={inp}/></div>
+          <div><L>VIN</L><input value={carForm.vin} onChange={e=>setCarForm({...carForm,vin:e.target.value})} placeholder={tr("Необязательно")} style={inp}/></div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
           <div><L>Топливо</L><input value={carForm.fuel} onChange={e=>setCarForm({...carForm,fuel:e.target.value})} placeholder="Бензин" style={inp}/></div>
@@ -1430,12 +1467,12 @@ function ClientBase(){
         </div>
       </div>
     </Modal>}
-    {imp&&<Modal title="Загрузка из Excel" onClose={()=>setImp(null)}>
+    {imp&&<Modal title={tr("Загрузка из Excel")} onClose={()=>setImp(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         <div style={{fontSize:13,color:C.primary}}>В файле: <b>{imp.list.length}</b> клиентов, <b>{imp.cars}</b> машин.</div>
-        <div style={{fontSize:12,color:C.muted}}>Дубли определяются по имя+телефон (клиент) и VIN / гос.номеру (машина).</div>
-        <button onClick={()=>doImport('add')} disabled={busy} style={{padding:"11px 0",border:"none",borderRadius:8,background:C.primary,color:"#fff",fontWeight:700,cursor:"pointer",opacity:busy?0.6:1}}>➕ Добавить только новые</button>
-        <button onClick={()=>doImport('upsert')} disabled={busy} style={{padding:"11px 0",border:`1.5px solid ${C.sub}`,borderRadius:8,background:"#EAF2FF",color:C.sub,fontWeight:700,cursor:"pointer",opacity:busy?0.6:1}}>🔄 Добавить + обновить совпавших</button>
+        <div style={{fontSize:12,color:C.muted}}>{tr("Дубли определяются по имя+телефон (клиент) и VIN / гос.номеру (машина).")}</div>
+        <button onClick={()=>doImport('add')} disabled={busy} style={{padding:"11px 0",border:"none",borderRadius:8,background:C.primary,color:"#fff",fontWeight:700,cursor:"pointer",opacity:busy?0.6:1}}>{tr("➕ Добавить только новые")}</button>
+        <button onClick={()=>doImport('upsert')} disabled={busy} style={{padding:"11px 0",border:`1.5px solid ${C.sub}`,borderRadius:8,background:"#EAF2FF",color:C.sub,fontWeight:700,cursor:"pointer",opacity:busy?0.6:1}}>{tr("🔄 Добавить + обновить совпавших")}</button>
         <button onClick={()=>setImp(null)} style={{padding:"9px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,fontWeight:600,cursor:"pointer"}}>{tr("Отмена")}</button>
       </div>
     </Modal>}
@@ -1457,7 +1494,7 @@ function JobCard(){
   const selClient=dir.find(c=>c.id===clientId);
   const selCar=selClient&&(selClient.cars||[]).find(x=>x.id===carId);
 
-  const STATUSES=[["draft","📝 Черновик"],["checkin","➡ Приёмка"],["checkout","📤 Выдача"]];
+  const STATUSES=[["draft",tr("📝 Черновик")],["checkin",tr("➡ Приёмка")],["checkout",tr("📤 Выдача")]];
   const calcRow=r=>{const sub=(+r.qty||0)*(+r.rate||0);return sub-sub*((+r.disc||0)/100);};
   const allRows=[...services,...parts];
   const sumSub=allRows.reduce((a,r)=>a+calcRow(r),0);
@@ -1481,23 +1518,23 @@ function JobCard(){
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",minWidth:820}}>
           <thead><tr style={{textAlign:"left",background:C.bg}}>
-            <th style={{...th,width:28}}></th><th style={th}>Позиция</th><th style={th}>Техник</th><th style={th}>Метки</th>
-            <th style={th}>Кол-во/ч</th><th style={th}>Ставка</th><th style={th}>Налог</th><th style={th}>Скидка</th><th style={{...th,textAlign:"right"}}>Сумма</th>
+            <th style={{...th,width:28}}></th><th style={th}>{tr("Позиция")}</th><th style={th}>{tr("Техник")}</th><th style={th}>{tr("Метки")}</th>
+            <th style={th}>{tr("Кол-во/ч")}</th><th style={th}>{tr("Ставка")}</th><th style={th}>{tr("Налог")}</th><th style={th}>{tr("Скидка")}</th><th style={{...th,textAlign:"right"}}>{tr("Сумма")}</th>
           </tr></thead>
           <tbody>
-            {rows.length===0?<tr><td colSpan={9} style={{padding:"22px",textAlign:"center",color:C.muted,fontSize:12}}>Пока нет позиций — нажмите «＋ {addLabel}»</td></tr>:
+            {rows.length===0?<tr><td colSpan={9} style={{padding:"22px",textAlign:"center",color:C.muted,fontSize:12}}>{tr("Пока нет позиций — нажмите")} «＋ {addLabel}»</td></tr>:
              rows.map((r,i)=>(<tr key={i} style={{borderTop:`1px solid ${C.border}`}}>
                <td style={{...td,width:28}}><input type="checkbox"/></td>
                <td style={td}><div style={{fontWeight:700}}>{r.item}</div>
                  <div style={{fontSize:10,color:C.muted}}>Себест.: {money(r.cost)} · Прибыль: {money(calcRow(r)-(+r.cost||0))}</div>
                  {r.tag&&<div style={{fontSize:10,color:C.muted}}>🏷 {r.tag}</div>}</td>
                <td style={{...td,color:C.sub,fontWeight:600,cursor:"pointer"}}>{r.technician||"Назначить"}</td>
-               <td style={td}><span style={{fontSize:11,color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,padding:"2px 8px"}}>＋ Метка</span></td>
+               <td style={td}><span style={{fontSize:11,color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,padding:"2px 8px"}}>{tr("＋ Метка")}</span></td>
                <td style={td}>{r.qty}</td><td style={td}>{money(r.rate)}</td><td style={td}>{r.tax||0}%</td><td style={td}>{r.disc||0}%</td>
                <td style={{...td,textAlign:"right",fontWeight:700}}>{money(calcRow(r))}</td>
              </tr>))}
             {rows.length>0&&<tr style={{borderTop:`2px solid ${C.border}`,background:C.bg,fontWeight:700}}>
-              <td style={td}></td><td style={td}>Итого</td><td style={td}></td><td style={td}></td>
+              <td style={td}></td><td style={td}>{tr("Итого")}</td><td style={td}></td><td style={td}></td>
               <td style={td}>{rows.reduce((a,r)=>a+(+r.qty||0),0)}</td>
               <td style={td}>{money(rows.reduce((a,r)=>a+(+r.rate||0),0))}</td><td style={td}></td><td style={td}></td>
               <td style={{...td,textAlign:"right"}}>{money(rows.reduce((a,r)=>a+calcRow(r),0))}</td>
@@ -1516,7 +1553,7 @@ function JobCard(){
         <div style={{fontSize:17,fontWeight:800,color:C.primary}}>ЗАКАЗ-000001 <span style={{color:C.muted}}>|</span> СМЕТА-000001 <span style={{color:C.sub}}>| СЧЁТ-000001</span></div>
         <div style={{fontSize:12,color:C.muted,marginTop:3,display:"flex",alignItems:"center",gap:8}}>
           {today().toLocaleDateString(LANG,{day:"numeric",month:"short",year:"numeric"})}
-          <span style={{background:"#EAF7EE",color:C.green,fontWeight:700,fontSize:11,padding:"2px 10px",borderRadius:20}}>Открыта</span>
+          <span style={{background:"#EAF7EE",color:C.green,fontWeight:700,fontSize:11,padding:"2px 10px",borderRadius:20}}>{tr("Открыта")}</span>
         </div>
       </div>
       <div style={{display:"flex",gap:10,fontSize:16}}>{["📋","📦","🔔","📊","📈","⏱","⋯"].map((ic,i)=><span key={i} style={{cursor:"pointer",opacity:0.65}}>{ic}</span>)}</div>
@@ -1540,15 +1577,15 @@ function JobCard(){
             <div style={{fontSize:11,color:C.muted}}>{selCar.plate?`Номер: ${selCar.plate}   `:""}{selCar.vin?`VIN: ${selCar.vin}`:""}</div></div>
         </div>}
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:16}}>📍</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>Адрес счёта</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Пхукет, 83000":"не указан"}</div></div>
+          <span style={{fontSize:16}}>📍</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>{tr("Адрес счёта")}</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Пхукет, 83000":"не указан"}</div></div>
         </div>
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:16}}>🚚</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>Адрес доставки</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Пхукет, 83000":"не указан"}</div></div>
+          <span style={{fontSize:16}}>🚚</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>{tr("Адрес доставки")}</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Пхукет, 83000":"не указан"}</div></div>
         </div>
       </div>
       <div style={{flex:"1 1 300px",minWidth:260}}>
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:12,height:"100%",boxSizing:"border-box"}}>
-          <div style={{fontSize:13,fontWeight:800,color:C.primary,marginBottom:8}}>📝 Ремарки клиента и рекомендации</div>
+          <div style={{fontSize:13,fontWeight:800,color:C.primary,marginBottom:8}}>{tr("📝 Ремарки клиента и рекомендации")}</div>
           <textarea value={remarks} onChange={e=>setRemarks(e.target.value)} rows={7} placeholder="Пожелания клиента, рекомендации сервиса, инструкции…" style={{...inp,resize:"vertical"}}/>
         </div>
       </div>
@@ -1563,24 +1600,24 @@ function JobCard(){
     </div>
 
     {/* Услуги и запчасти */}
-    {section("Услуги","🛠",services,soon,"Услуга",<span style={{background:C.red,color:"#fff",fontSize:11,fontWeight:700,borderRadius:20,padding:"3px 10px"}}>Авторизации 1</span>)}
-    {section("Запчасти","🔩",parts,soon,"Запчасть")}
+    {section(tr("Услуги"),"🛠",services,soon,tr("Услуга"),<span style={{background:C.red,color:"#fff",fontSize:11,fontWeight:700,borderRadius:20,padding:"3px 10px"}}>{tr("Авторизации 1")}</span>)}
+    {section(tr("Запчасти"),"🔩",parts,soon,tr("Запчасть"))}
 
     {/* Итоги как в референсе */}
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,maxWidth:380,marginLeft:"auto"}}>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:14,marginBottom:8}}><span style={{color:C.muted}}>Authorised (сумма)</span><b style={{color:C.primary}}>{money(sumSub)}</b></div>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:8,paddingLeft:8,borderLeft:`2px solid ${C.border}`}}><span style={{color:C.muted}}>НДС [7%]</span><span style={{color:C.muted}}>{money(vat)}</span></div>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:800,paddingTop:8,borderTop:`1px solid ${C.border}`,marginBottom:12}}><span style={{color:C.primary}}>Всего</span><span style={{color:C.primary}}>{money(total)}</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:14,marginBottom:8}}><span style={{color:C.muted}}>{tr("Authorised (сумма)")}</span><b style={{color:C.primary}}>{money(sumSub)}</b></div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:8,paddingLeft:8,borderLeft:`2px solid ${C.border}`}}><span style={{color:C.muted}}>{tr("НДС [7%]")}</span><span style={{color:C.muted}}>{money(vat)}</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:800,paddingTop:8,borderTop:`1px solid ${C.border}`,marginBottom:12}}><span style={{color:C.primary}}>{tr("Всего")}</span><span style={{color:C.primary}}>{money(total)}</span></div>
       <div style={{display:"flex",gap:8}}>
-        <div style={{flex:1,background:"#FEF3CD",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:10,color:"#8A6D00",fontWeight:700}}>🛒 Себестоимость</div><div style={{fontSize:14,fontWeight:800,color:"#8A6D00"}}>{money(totalCost)}</div></div>
-        <div style={{flex:1,background:"#E6F6E9",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:10,color:C.green,fontWeight:700}}>📈 Прибыль ({profitPct.toFixed(0)}%)</div><div style={{fontSize:14,fontWeight:800,color:C.green}}>{money(profit)}</div></div>
+        <div style={{flex:1,background:"#FEF3CD",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:10,color:"#8A6D00",fontWeight:700}}>{tr("🛒 Себестоимость")}</div><div style={{fontSize:14,fontWeight:800,color:"#8A6D00"}}>{money(totalCost)}</div></div>
+        <div style={{flex:1,background:"#E6F6E9",borderRadius:10,padding:"10px 12px"}}><div style={{fontSize:10,color:C.green,fontWeight:700}}>{tr("📈 Прибыль")} ({profitPct.toFixed(0)}%)</div><div style={{fontSize:14,fontWeight:800,color:C.green}}>{money(profit)}</div></div>
       </div>
     </div>
 
     {/* Нижняя панель: Оплатить */}
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:16,padding:"12px 4px",flexWrap:"wrap",gap:10}}>
-      <div style={{fontSize:13,color:C.muted,fontWeight:600}}>💵 Оплата по счёту</div>
-      <button onClick={()=>alert("Приём оплаты сделаем на следующем шаге 🙂")} style={{padding:"11px 28px",fontSize:14,fontWeight:800,border:"none",borderRadius:10,cursor:"pointer",background:C.primary,color:"#fff"}}>Оплатить</button>
+      <div style={{fontSize:13,color:C.muted,fontWeight:600}}>💵 {tr("Оплата по счёту")}</div>
+      <button onClick={()=>alert("Приём оплаты сделаем на следующем шаге 🙂")} style={{padding:"11px 28px",fontSize:14,fontWeight:800,border:"none",borderRadius:10,cursor:"pointer",background:C.primary,color:"#fff"}}>{tr("Оплатить")}</button>
     </div>
   </div>);
 }
