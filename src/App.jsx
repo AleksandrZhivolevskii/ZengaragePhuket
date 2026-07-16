@@ -1,8 +1,17 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useContext, createContext } from "react";
 import * as XLSX from "xlsx";
 
 const MONTHS_RU = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+const MONTHS_EN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAYS_RU   = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+const DAYS_EN   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+// ── i18n ────────────────────────────────────────────────────────────────────
+let LANG = (typeof localStorage!=='undefined' && localStorage.getItem('zg_lang')) || 'ru';
+// t("русский текст","english text") — возвращает по текущему языку.
+// Перерисовку запускает смена состояния языка в App (перерисовывает всё дерево).
+function useT(){ return (ru,en)=> LANG==='en'?(en===undefined?ru:en):ru; }
+const MONTHS = ()=> LANG==='en'?MONTHS_EN:MONTHS_RU;
+const DAYS   = ()=> LANG==='en'?DAYS_EN:DAYS_RU;
 const C = { bg:"#F4F7FA",card:"#fff",primary:"#1A3F5C",sub:"#2D6A9F",border:"#E0E8F0",muted:"#6B8090",red:"#E74C3C",green:"#27AE60",amber:"#F39C12" };
 const COLORS = ["#B5D4F4","#C5E0A0","#FDE8A0","#FBC84A","#D9D6F5","#FAC775","#B8E8D0","#7DC8A8","#DDE8D0","#F7C1C1","#EEECEA","#E8D5F5"];
 const WORK_TYPES = ["ТО","Мех. работы","Диагностика","Электро-работы","Chip Tuning","Сложный ремонт","Видеорегистратор","Заправка кондей","Установка фар","Другое"];
@@ -288,9 +297,9 @@ function chainToBookData(schedule, base){
 // Текст даты/времени этапа (одиночный день или диапазон дней)
 const chainStepWhen=st=>{
   if(isSameDay(st.firstDate,st.lastDate))
-    return `${st.firstDate.toLocaleDateString("ru",{weekday:"short",day:"numeric",month:"short"})} · ${fmt(st.firstStartH)}–${fmt(st.lastEndH)}`;
+    return `${st.firstDate.toLocaleDateString(LANG,{weekday:"short",day:"numeric",month:"short"})} · ${fmt(st.firstStartH)}–${fmt(st.lastEndH)}`;
   const nd=new Set(st.slots.map(s=>dayKey(s.date))).size;
-  return `${st.firstDate.toLocaleDateString("ru",{day:"numeric",month:"short"})} ${fmt(st.firstStartH)} → ${st.lastDate.toLocaleDateString("ru",{day:"numeric",month:"short"})} ${fmt(st.lastEndH)} · ${nd} дн.`;
+  return `${st.firstDate.toLocaleDateString(LANG,{day:"numeric",month:"short"})} ${fmt(st.firstStartH)} → ${st.lastDate.toLocaleDateString(LANG,{day:"numeric",month:"short"})} ${fmt(st.lastEndH)} · ${nd} дн.`;
 };
 const chainDaysCount=sch=>new Set(sch.flatMap(s=>s.slots.map(sl=>dayKey(sl.date)))).size;
 // До `count` ближайших вариантов цепочки с разными датами старта
@@ -414,8 +423,8 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
           {opts.length>1&&<div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
             {opts.map((o,i)=>{const f=o[0].firstDate,l=o[o.length-1].lastDate,multi=!isSameDay(f,l);return(
               <button key={i} onClick={()=>setChosen(i)} style={{flex:"1 1 30%",minWidth:110,padding:"7px 9px",borderRadius:10,border:`2px solid ${chosen===i?C.primary:C.border}`,background:chosen===i?"#EAF2FF":"#FAFBFC",cursor:"pointer",textAlign:"left"}}>
-                <div style={{fontSize:12,fontWeight:800,color:C.primary}}>{f.toLocaleDateString("ru",{day:"numeric",month:"short"})}{multi?` → ${l.toLocaleDateString("ru",{day:"numeric",month:"short"})}`:""}</div>
-                <div style={{fontSize:9,color:C.muted}}>{f.toLocaleDateString("ru",{weekday:"short"})} · {o.length} эт.</div>
+                <div style={{fontSize:12,fontWeight:800,color:C.primary}}>{f.toLocaleDateString(LANG,{day:"numeric",month:"short"})}{multi?` → ${l.toLocaleDateString(LANG,{day:"numeric",month:"short"})}`:""}</div>
+                <div style={{fontSize:9,color:C.muted}}>{f.toLocaleDateString(LANG,{weekday:"short"})} · {o.length} эт.</div>
               </button>);})}
           </div>}
           <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
@@ -467,7 +476,7 @@ function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
           <div>
             <div style={{fontWeight:800,fontSize:13,color:slot.textColor}}>{staff.emoji} {staff.name} — {slot.label}</div>
             <div style={{fontSize:11,color:slot.textColor,opacity:0.8}}>
-              {date.toLocaleDateString("ru",{weekday:"long",day:"numeric",month:"long"})} · {fmt(slot.start)}–{fmt(slot.end)}
+              {date.toLocaleDateString(LANG,{weekday:"long",day:"numeric",month:"long"})} · {fmt(slot.start)}–{fmt(slot.end)}
               {isCont&&<span style={{marginLeft:8,background:"rgba(0,0,0,0.12)",borderRadius:4,padding:"1px 5px",fontSize:9}}>Продолжение</span>}
             </div>
           </div>
@@ -569,7 +578,7 @@ function MonthView({staff,bookings,onDayClick,currentDate,activeStaffId}){
   const vis=activeStaffId==="all"?staff:staff.filter(s=>s.id===activeStaffId);
   return(<div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
-      {DAYS_RU.map(d=><div key={d} style={{textAlign:"center",fontSize:10,fontWeight:700,color:C.muted,padding:"3px 0"}}>{d}</div>)}
+      {DAYS().map(d=><div key={d} style={{textAlign:"center",fontSize:10,fontWeight:700,color:C.muted,padding:"3px 0"}}>{d}</div>)}
     </div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
       {weeks.flat().map((date,i)=>{
@@ -599,7 +608,7 @@ function WeekView({weekStart,staff,bookings,onDayClick,onSlotClick,activeStaffId
       <div style={{background:C.bg,borderBottom:`2px solid ${C.border}`,borderRight:`1px solid ${C.border}`,padding:"10px 8px"}}/>
       {days.map((d,i)=>{const isT=isSameDay(d,td),isPast=d<td&&!isT;return(
         <div key={i} onClick={()=>onDayClick(d)} style={{background:isT?"#EAF2FF":C.bg,padding:"8px 4px",textAlign:"center",borderBottom:`2px solid ${isT?C.sub:C.border}`,borderRight:`1px solid ${C.border}`,cursor:"pointer"}}>
-          <div style={{fontSize:11,fontWeight:700,color:isT?C.sub:C.muted}}>{DAYS_RU[i]}</div>
+          <div style={{fontSize:11,fontWeight:700,color:isT?C.sub:C.muted}}>{DAYS()[i]}</div>
           <div style={{fontSize:17,fontWeight:isT?800:500,color:isT?C.sub:isPast?C.muted:C.primary}}>{d.getDate()}</div>
         </div>
       );})}
@@ -920,8 +929,8 @@ function SlotFinder({staff, bookings, onConfirm}) {
               {opts.length>1&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>
                 {opts.map((o,i)=>{const f=o[0].firstDate,l=o[o.length-1].lastDate,multi=!isSameDay(f,l);return(
                   <button key={i} onClick={()=>setChosen(i)} style={{flex:"1 1 30%",minWidth:100,padding:"7px 9px",borderRadius:10,border:`2px solid ${chosen===i?C.primary:C.border}`,background:chosen===i?"#EAF2FF":"#FAFBFC",cursor:"pointer",textAlign:"left"}}>
-                    <div style={{fontSize:12,fontWeight:800,color:C.primary}}>{f.toLocaleDateString("ru",{day:"numeric",month:"short"})}{multi?` → ${l.toLocaleDateString("ru",{day:"numeric",month:"short"})}`:""}</div>
-                    <div style={{fontSize:9,color:C.muted}}>{f.toLocaleDateString("ru",{weekday:"short"})} · {o.length} эт.</div>
+                    <div style={{fontSize:12,fontWeight:800,color:C.primary}}>{f.toLocaleDateString(LANG,{day:"numeric",month:"short"})}{multi?` → ${l.toLocaleDateString(LANG,{day:"numeric",month:"short"})}`:""}</div>
+                    <div style={{fontSize:9,color:C.muted}}>{f.toLocaleDateString(LANG,{weekday:"short"})} · {o.length} эт.</div>
                   </button>);})}
               </div>}
               {sch.map((st,i)=>{
@@ -1464,7 +1473,7 @@ function JobCard(){
       <div>
         <div style={{fontSize:17,fontWeight:800,color:C.primary}}>ЗАКАЗ-000001 <span style={{color:C.muted}}>|</span> СМЕТА-000001 <span style={{color:C.sub}}>| СЧЁТ-000001</span></div>
         <div style={{fontSize:12,color:C.muted,marginTop:3,display:"flex",alignItems:"center",gap:8}}>
-          {today().toLocaleDateString("ru",{day:"numeric",month:"short",year:"numeric"})}
+          {today().toLocaleDateString(LANG,{day:"numeric",month:"short",year:"numeric"})}
           <span style={{background:"#EAF7EE",color:C.green,fontWeight:700,fontSize:11,padding:"2px 10px",borderRadius:20}}>Открыта</span>
         </div>
       </div>
@@ -1542,6 +1551,9 @@ export default function App(){
   const [syncing,setSyncing]  = useState(false);
   const [lastSync,setLastSync]= useState(null);
   const [appTab,setAppTab]    = useState("calendar");
+  const [lang,setLangState]   = useState(LANG);
+  const setLang=l=>{LANG=l;setLangState(l);try{localStorage.setItem('zg_lang',l);}catch(e){}};
+  const t=useT();
   const [view,setView]        = useState("month");
   const [curDate,setCurDate]  = useState(today);
   const [curMonth,setCurMonth]= useState(()=>{const d=today();return new Date(d.getFullYear(),d.getMonth(),1);});
@@ -1625,9 +1637,9 @@ export default function App(){
   const nextP=()=>{if(view==="month")setCurMonth(m=>new Date(m.getFullYear(),m.getMonth()+1,1));else if(view==="week")setWS(w=>addDays(w,7));else setCurDate(d=>addDays(d,1));};
   const goToday=()=>{const t=today();setCurDate(t);setCurMonth(new Date(t.getFullYear(),t.getMonth(),1));setWS(addDays(t,-((t.getDay()+6)%7)));};
   const pLabel=()=>{
-    if(view==="month")return`${MONTHS_RU[curMonth.getMonth()]} ${curMonth.getFullYear()}`;
-    if(view==="week"){const e=addDays(weekStart,6);return`${weekStart.getDate()} ${MONTHS_RU[weekStart.getMonth()]} — ${e.getDate()} ${MONTHS_RU[e.getMonth()]}`;}
-    return curDate.toLocaleDateString("ru",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+    if(view==="month")return`${MONTHS()[curMonth.getMonth()]} ${curMonth.getFullYear()}`;
+    if(view==="week"){const e=addDays(weekStart,6);return`${weekStart.getDate()} ${MONTHS()[weekStart.getMonth()]} — ${e.getDate()} ${MONTHS()[e.getMonth()]}`;}
+    return curDate.toLocaleDateString(LANG,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   };
   const nb=(l,fn,a)=><button onClick={fn} style={{padding:"5px 11px",fontSize:11,fontWeight:600,border:"none",cursor:"pointer",borderRadius:6,background:a?C.primary:"transparent",color:a?"#fff":C.muted}}>{l}</button>;
 
@@ -1635,7 +1647,7 @@ export default function App(){
     <div style={{fontFamily:"'Inter',system-ui,sans-serif",background:C.primary,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
       <div style={{fontSize:48}}>🔧</div>
       <div style={{color:"#fff",fontSize:18,fontWeight:700}}>ZEN GARAGE PHUKET</div>
-      <div style={{color:"#7BAAC8",fontSize:13}}>Загрузка данных из базы...</div>
+      <div style={{color:"#7BAAC8",fontSize:13}}>{t("Загрузка данных из базы...","Loading data...")}</div>
       <div style={{width:40,height:4,borderRadius:2,background:"rgba(255,255,255,0.2)",overflow:"hidden"}}>
         <div style={{width:"40%",height:"100%",background:"#7DC8A8",borderRadius:2,animation:"none"}}/>
       </div>
@@ -1649,22 +1661,23 @@ export default function App(){
     <div style={{background:C.primary,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
       <div>
         <div style={{fontSize:9,color:"#7BAAC8",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>ZEN GARAGE PHUKET</div>
-        <div style={{fontSize:16,fontWeight:800,color:"#fff",marginTop:1}}>{appTab==="calendar"?"Календарь записи":appTab==="finder"?"Подбор слота":appTab==="jobcard"?"Джоб-карта":appTab==="clients"?"База клиентов":"Настройки команды"}</div>
+        <div style={{fontSize:16,fontWeight:800,color:"#fff",marginTop:1}}>{appTab==="calendar"?t("Календарь записи","Booking calendar"):appTab==="finder"?t("Подбор слота","Slot finder"):appTab==="jobcard"?t("Джоб-карта","Job card"):appTab==="clients"?t("База клиентов","Client base"):t("Настройки команды","Team settings")}</div>
         {lastSync&&<div style={{fontSize:8,color:"#5A8AAC",marginTop:1}}>
-          {syncing?"⟳ Сохранение...":"✓ Sync "+lastSync.toLocaleTimeString('ru',{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}
+          {syncing?t("⟳ Сохранение...","⟳ Saving..."):"✓ "+lastSync.toLocaleTimeString(LANG,{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}
         </div>}
       </div>
       <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
         {appTab==="calendar"&&<div style={{display:"flex",gap:12}}>
-          {[["🗓",`${tdStats.b}/${tdStats.t} записей`,"#FBC84A"],["✅",`${tdStats.free} своб.`,"#7DC8A8"]].map(([l,v,col])=>(
+          {[["🗓",`${tdStats.b}/${tdStats.t} ${t("записей","booked")}`,"#FBC84A"],["✅",`${tdStats.free} ${t("своб.","free")}`,"#7DC8A8"]].map(([l,v,col])=>(
             <div key={l} style={{textAlign:"center"}}><div style={{fontSize:8,color:"#7BAAC8"}}>{l}</div><div style={{fontSize:13,fontWeight:800,color:col}}>{v}</div></div>
           ))}
         </div>}
         <div style={{display:"flex",gap:3,background:"rgba(255,255,255,0.1)",borderRadius:8,padding:3}}>
-          {[["calendar","📅 Календарь"],["finder","🔍 Подбор"],["jobcard","🧾 Джоб-карт"],["clients","👥 База"],["settings","⚙️ Настройки"]].map(([id,l])=>(
+          {[["calendar","📅 "+t("Календарь","Calendar")],["finder","🔍 "+t("Подбор","Finder")],["jobcard","🧾 "+t("Джоб-карт","Job card")],["clients","👥 "+t("База","Base")],["settings","⚙️ "+t("Настройки","Settings")]].map(([id,l])=>(
             <button key={id} onClick={()=>setAppTab(id)} style={{padding:"5px 11px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer",borderRadius:6,background:appTab===id?"#fff":"transparent",color:appTab===id?C.primary:"rgba(255,255,255,0.8)"}}>{l}</button>
           ))}
         </div>
+        <button onClick={()=>setLang(lang==='en'?'ru':'en')} title="Сменить язык / Switch language" style={{padding:"5px 10px",fontSize:11,fontWeight:800,border:"1px solid rgba(255,255,255,0.35)",cursor:"pointer",borderRadius:6,background:"transparent",color:"#fff"}}>{lang==='en'?'RU':'EN'}</button>
       </div>
     </div>
 
@@ -1675,16 +1688,16 @@ export default function App(){
             <button onClick={prevP} style={{width:28,height:28,borderRadius:7,border:`1px solid ${C.border}`,background:C.card,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
             <div style={{fontSize:13,fontWeight:700,color:C.primary,minWidth:200,textAlign:"center"}}>{pLabel()}</div>
             <button onClick={nextP} style={{width:28,height:28,borderRadius:7,border:`1px solid ${C.border}`,background:C.card,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
-            <button onClick={goToday} style={{padding:"4px 9px",border:`1px solid ${C.border}`,borderRadius:7,background:C.card,cursor:"pointer",fontSize:11,fontWeight:600,color:C.sub}}>Сегодня</button>
+            <button onClick={goToday} style={{padding:"4px 9px",border:`1px solid ${C.border}`,borderRadius:7,background:C.card,cursor:"pointer",fontSize:11,fontWeight:600,color:C.sub}}>{t("Сегодня","Today")}</button>
           </div>
           <div style={{display:"flex",gap:3,background:C.card,borderRadius:8,padding:3,boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
-            {nb("Месяц",()=>setView("month"),view==="month")}
-            {nb("Неделя",()=>{const d=(today().getDay()+6)%7;setWS(addDays(today(),-d));setView("week");},view==="week")}
-            {nb("День",()=>{setCurDate(today());setView("day");},view==="day")}
+            {nb(t("Месяц","Month"),()=>setView("month"),view==="month")}
+            {nb(t("Неделя","Week"),()=>{const d=(today().getDay()+6)%7;setWS(addDays(today(),-d));setView("week");},view==="week")}
+            {nb(t("День","Day"),()=>{setCurDate(today());setView("day");},view==="day")}
           </div>
         </div>
         <div style={{display:"flex",gap:5,marginBottom:10,flexWrap:"wrap"}}>
-          <button onClick={()=>setAS("all")} style={{padding:"4px 11px",borderRadius:99,border:`2px solid ${activeStaff==="all"?C.primary:C.border}`,background:activeStaff==="all"?C.primary:C.card,color:activeStaff==="all"?"#fff":C.muted,fontSize:11,fontWeight:700,cursor:"pointer"}}>👥 Все</button>
+          <button onClick={()=>setAS("all")} style={{padding:"4px 11px",borderRadius:99,border:`2px solid ${activeStaff==="all"?C.primary:C.border}`,background:activeStaff==="all"?C.primary:C.card,color:activeStaff==="all"?"#fff":C.muted,fontSize:11,fontWeight:700,cursor:"pointer"}}>👥 {t("Все","All")}</button>
           {staff.map(s=><button key={s.id} onClick={()=>setAS(s.id)} style={{padding:"4px 11px",borderRadius:99,border:`2px solid ${activeStaff===s.id?s.color:"transparent"}`,background:activeStaff===s.id?s.color:C.card,color:activeStaff===s.id?s.textColor:C.muted,fontSize:11,fontWeight:700,cursor:"pointer"}}>{s.emoji} {s.name}</button>)}
         </div>
         <div style={{background:C.card,borderRadius:12,padding:12,boxShadow:"0 1px 8px rgba(26,63,92,0.07)"}}>
@@ -1693,12 +1706,12 @@ export default function App(){
           {view==="day"&&<DayView date={curDate} staff={staff} bookings={bookings} onSlotClick={openSlot} activeStaffId={activeStaff}/>}
         </div>
         <div style={{display:"flex",gap:10,marginTop:10,flexWrap:"wrap",fontSize:10,color:C.muted,alignItems:"center"}}>
-          {[["#27AE60","✅ Подтверждён"],["#F39C12","⏳ Ожидание"],["#E74C3C","❌ Отменён"]].map(([col,l])=>(
+          {[["#27AE60",t("✅ Подтверждён","✅ Confirmed")],["#F39C12",t("⏳ Ожидание","⏳ Pending")],["#E74C3C",t("❌ Отменён","❌ Cancelled")]].map(([col,l])=>(
             <div key={l} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:9,height:9,borderRadius:2,background:col}}/>{l}</div>
           ))}
-          <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:9,height:9,borderRadius:2,border:`2px dashed ${C.border}`}}/> Свободный слот</div>
-          <div style={{display:"flex",alignItems:"center",gap:4,color:C.primary}}><span>⛓</span> Продолжение</div>
-          <div style={{marginLeft:"auto",color:C.sub}}>Нажмите слот → укажите время → система подберёт даты</div>
+          <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:9,height:9,borderRadius:2,border:`2px dashed ${C.border}`}}/> {t("Свободный слот","Free slot")}</div>
+          <div style={{display:"flex",alignItems:"center",gap:4,color:C.primary}}><span>⛓</span> {t("Продолжение","Continuation")}</div>
+          <div style={{marginLeft:"auto",color:C.sub}}>{t("Нажмите слот → укажите время → система подберёт даты","Click a slot → set duration → the system finds dates")}</div>
         </div>
       </>)}
       {appTab==="finder"&&<SlotFinder staff={staff} bookings={bookings} onConfirm={confirmMulti}/>}
