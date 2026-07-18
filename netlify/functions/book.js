@@ -1,6 +1,7 @@
 // netlify/functions/book.js — простое создание брони для внешнего агента
 // POST { staffId, date:"YYYY-MM-DD", slotId, client, car?, work?, status?, notes?, clientId?, carId? }
 const { Pool } = require('pg');
+const { verifyAuth } = require('../../lib/authlib');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -21,6 +22,8 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return err(405, 'POST only');
 
   try {
+    const _a = verifyAuth(event);
+    if (!_a.ok) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Unauthorized' }) };
     const b = JSON.parse(event.body || '{}');
     const { staffId, date, slotId } = b;
     if (!staffId || !date || !slotId) return err(400, 'Нужны поля: staffId, date, slotId');

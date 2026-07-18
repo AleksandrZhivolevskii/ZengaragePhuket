@@ -145,17 +145,22 @@ const today= ()=>{
 
 // ── API layer ─────────────────────────────────────────────────────────────────
 const API = '/.netlify/functions';
+let AUTH_TOKEN = (typeof localStorage!=='undefined' && localStorage.getItem('zg_token')) || '';
+let onUnauthorized = null; // App подставит колбэк, чтобы 401 выкидывал на вход
+function setAuthToken(t){ AUTH_TOKEN=t||''; try{ t?localStorage.setItem('zg_token',t):localStorage.removeItem('zg_token'); }catch(e){} }
+function authHeaders(extra){ const h=Object.assign({},extra||{}); if(AUTH_TOKEN) h['Authorization']='Bearer '+AUTH_TOKEN; return h; }
+async function handle(r){ if(r.status===401){ setAuthToken(''); if(onUnauthorized) onUnauthorized(); } return r.json(); }
 async function apiGet(path) {
-  const r = await fetch(API+path);
-  return r.json();
+  const r = await fetch(API+path, {headers:authHeaders()});
+  return handle(r);
 }
 async function apiPost(path, body) {
-  const r = await fetch(API+path, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  return r.json();
+  const r = await fetch(API+path, {method:'POST',headers:authHeaders({'Content-Type':'application/json'}),body:JSON.stringify(body)});
+  return handle(r);
 }
 async function apiDelete(path, body) {
-  const r = await fetch(API+path, {method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  return r.json();
+  const r = await fetch(API+path, {method:'DELETE',headers:authHeaders({'Content-Type':'application/json'}),body:JSON.stringify(body)});
+  return handle(r);
 }
 const addDays=(d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r;};
 const isSameDay=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
@@ -1623,7 +1628,101 @@ function JobCard(){
 }
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
+// ── УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ (админ) ────────────────────────────────────────
+function UsersAdmin({currentUser}){
+  const t=useT();
+  const [users,setUsers]=useState([]);
+  const [form,setForm]=useState(null);
+  const [busy,setBusy]=useState(false);
+  const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:13,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
+  const load=()=>apiPost('/auth',{op:'list'}).then(r=>{if(r.users)setUsers(r.users);}).catch(()=>{});
+  useEffect(load,[]);
+  const create=async()=>{if(!form.username.trim()||!form.password)return alert(t("Логин и пароль обязательны","Login and password required"));setBusy(true);const r=await apiPost('/auth',{op:'create',username:form.username.trim(),name:form.name,password:form.password,role:form.role}).catch(()=>null);setBusy(false);if(r&&r.success){setForm(null);load();}else alert((r&&r.error)||"Error");};
+  const resetPw=async(u)=>{const np=prompt(t("Новый пароль для","New password for")+" "+u.username);if(!np)return;const r=await apiPost('/auth',{op:'resetPassword',id:u.id,password:np});alert(r&&r.success?t("Пароль обновлён","Password updated"):((r&&r.error)||"Error"));};
+  const del=async(u)=>{if(!confirm(t("Удалить пользователя","Delete user")+" "+u.username+"?"))return;const r=await apiPost('/auth',{op:'delete',id:u.id});if(r&&r.success)load();else alert((r&&r.error)||"Error");};
+  const btn=(bg,color)=>({padding:"5px 9px",fontSize:11,fontWeight:700,border:"none",borderRadius:7,cursor:"pointer",background:bg,color});
+  return(<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:14,marginBottom:14,maxWidth:900}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+      <div style={{fontWeight:800,color:C.primary,fontSize:15}}>👥 {t("Пользователи","Users")}</div>
+      <button onClick={()=>setForm({username:"",name:"",password:"",role:"staff"})} style={btn(C.primary,"#fff")}>＋ {t("Сотрудник","User")}</button>
+    </div>
+    {users.map(u=>(<div key={u.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:C.bg,borderRadius:8,marginBottom:6}}>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.primary}}>{u.name||u.username} {u.role==='admin'&&<span style={{fontSize:9,color:C.sub,background:"#EAF2FF",borderRadius:4,padding:"1px 6px"}}>admin</span>}</div>
+        <div style={{fontSize:11,color:C.muted}}>@{u.username}</div>
+      </div>
+      <button onClick={()=>resetPw(u)} style={btn("#EAF2FF",C.sub)}>🔑 {t("Пароль","Password")}</button>
+      {u.id!==currentUser.id&&<button onClick={()=>del(u)} style={btn("transparent",C.red)}>🗑</button>}
+    </div>))}
+    {form&&<div style={{border:`1.5px solid ${C.sub}`,borderRadius:10,padding:12,marginTop:8,display:"flex",flexDirection:"column",gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <input value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder={t("Логин","Login")} autoCapitalize="none" style={inp}/>
+        <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder={t("Имя","Name")} style={inp}/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <input value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder={t("Стартовый пароль","Initial password")} style={inp}/>
+        <select value={form.role} onChange={e=>setForm({...form,role:e.target.value})} style={{...inp,background:"#fff"}}>
+          <option value="staff">{t("Сотрудник","Staff")}</option><option value="admin">{t("Администратор","Administrator")}</option>
+        </select>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={()=>setForm(null)} style={{...btn("#F0F4F8",C.primary),flex:1,padding:"9px 0"}}>{t("Отмена","Cancel")}</button>
+        <button onClick={create} disabled={busy} style={{...btn(C.primary,"#fff"),flex:2,padding:"9px 0",opacity:busy?0.6:1}}>{t("Создать","Create")}</button>
+      </div>
+    </div>}
+  </div>);
+}
+
+// ── ЭКРАН ВХОДА ───────────────────────────────────────────────────────────────
+function LoginScreen({onAuth}){
+  const t=useT();
+  const [mode,setMode]=useState(null); // 'login' | 'bootstrap'
+  const [username,setUsername]=useState("");
+  const [password,setPassword]=useState("");
+  const [name,setName]=useState("");
+  const [err,setErr]=useState("");
+  const [busy,setBusy]=useState(false);
+  useEffect(()=>{apiPost('/auth',{op:'status'}).then(r=>setMode(r&&r.hasUsers?'login':'bootstrap')).catch(()=>setMode('login'));},[]);
+  const submit=async()=>{
+    if(!username.trim()||!password){setErr(t("Введите логин и пароль","Enter login and password"));return;}
+    setBusy(true);setErr("");
+    const r=await apiPost('/auth',{op:mode==='bootstrap'?'bootstrap':'login',username:username.trim(),password,name}).catch(()=>null);
+    setBusy(false);
+    if(r&&r.success&&r.token)onAuth(r.token,r.user);
+    else setErr((r&&r.error)||t("Ошибка входа","Login error"));
+  };
+  const inp={border:`1.5px solid ${C.border}`,borderRadius:9,padding:"11px 12px",fontSize:14,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
+  return(<div style={{fontFamily:"'Inter',system-ui,sans-serif",background:C.primary,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+    <div style={{background:C.card,borderRadius:16,boxShadow:"0 10px 50px rgba(0,0,0,0.3)",width:"100%",maxWidth:360,padding:"28px 24px"}}>
+      <div style={{textAlign:"center",marginBottom:20}}>
+        <div style={{fontSize:40}}>🔧</div>
+        <div style={{fontSize:11,color:C.muted,fontWeight:700,letterSpacing:"0.12em",marginTop:4}}>ZEN GARAGE PHUKET</div>
+        <div style={{fontSize:18,fontWeight:800,color:C.primary,marginTop:6}}>{mode==='bootstrap'?t("Создание администратора","Create administrator"):t("Вход","Sign in")}</div>
+        {mode==='bootstrap'&&<div style={{fontSize:12,color:C.muted,marginTop:4}}>{t("Первый запуск — задайте админ-аккаунт","First run — set up the admin account")}</div>}
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}} onKeyDown={e=>{if(e.key==='Enter')submit();}}>
+        {mode==='bootstrap'&&<input value={name} onChange={e=>setName(e.target.value)} placeholder={t("Имя","Name")} style={inp}/>}
+        <input value={username} onChange={e=>setUsername(e.target.value)} placeholder={t("Логин","Login")} autoFocus autoCapitalize="none" style={inp}/>
+        <input value={password} onChange={e=>setPassword(e.target.value)} placeholder={t("Пароль","Password")} type="password" style={inp}/>
+        {err&&<div style={{fontSize:12,color:C.red,textAlign:"center"}}>{err}</div>}
+        <button onClick={submit} disabled={busy||!mode} style={{padding:"12px 0",border:"none",borderRadius:10,background:C.primary,color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer",opacity:(busy||!mode)?0.6:1,marginTop:4}}>
+          {busy?"…":(mode==='bootstrap'?t("Создать","Create"):t("Войти","Sign in"))}
+        </button>
+      </div>
+    </div>
+  </div>);
+}
+
+// ── ГЕЙТ АВТОРИЗАЦИИ ──────────────────────────────────────────────────────────
 export default function App(){
+  const [user,setUser]=useState(()=>{try{return JSON.parse(localStorage.getItem('zg_user')||'null');}catch(e){return null;}});
+  useEffect(()=>{onUnauthorized=()=>{setUser(null);try{localStorage.removeItem('zg_user');}catch(e){}};},[]);
+  const doLogout=()=>{setAuthToken('');try{localStorage.removeItem('zg_user');}catch(e){}setUser(null);};
+  if(!user)return <LoginScreen onAuth={(token,u)=>{setAuthToken(token);try{localStorage.setItem('zg_user',JSON.stringify(u));}catch(e){}setUser(u);}}/>;
+  return <MainApp user={user} onLogout={doLogout}/>;
+}
+
+function MainApp({user,onLogout}){
   const [staff,setStaff]      = useState(INIT_STAFF);
   const [bookings,setBook]    = useState({});
   const [loading,setLoading]  = useState(true);
@@ -1757,6 +1856,11 @@ export default function App(){
           ))}
         </div>
         <button onClick={()=>setLang(lang==='en'?'ru':'en')} title="Сменить язык / Switch language" style={{padding:"5px 10px",fontSize:11,fontWeight:800,border:"1px solid rgba(255,255,255,0.35)",cursor:"pointer",borderRadius:6,background:"transparent",color:"#fff"}}>{lang==='en'?'RU':'EN'}</button>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <span style={{fontSize:11,color:"#9BB8D0",fontWeight:600,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>👤 {user?.name||user?.username}{user?.role==='admin'?" ★":""}</span>
+          <button onClick={async()=>{const np=prompt(t("Новый пароль","New password"));if(np){const r=await apiPost('/auth',{op:'changePassword',password:np});alert(r&&r.success?t("Пароль изменён","Password changed"):((r&&r.error)||"Error"));}}} title={t("Сменить пароль","Change password")} style={{padding:"5px 8px",fontSize:11,border:"1px solid rgba(255,255,255,0.35)",cursor:"pointer",borderRadius:6,background:"transparent",color:"#fff"}}>🔑</button>
+          <button onClick={onLogout} title={t("Выход","Log out")} style={{padding:"5px 10px",fontSize:11,fontWeight:700,border:"1px solid rgba(255,255,255,0.35)",cursor:"pointer",borderRadius:6,background:"transparent",color:"#fff"}}>{t("Выход","Log out")}</button>
+        </div>
       </div>
     </div>
 
@@ -1796,7 +1900,10 @@ export default function App(){
       {appTab==="finder"&&<SlotFinder staff={staff} bookings={bookings} onConfirm={confirmMulti}/>}
       {appTab==="jobcard"&&<div style={{padding:"12px 16px 30px"}}><JobCard/></div>}
       {appTab==="clients"&&<div style={{padding:"12px 16px 30px"}}><ClientBase/></div>}
-      {appTab==="settings"&&<StaffSettings staff={staff} setStaff={setStaff}/>}
+      {appTab==="settings"&&(<>
+        {user.role==='admin'&&<div style={{padding:"0 16px"}}><UsersAdmin currentUser={user}/></div>}
+        <StaffSettings staff={staff} setStaff={setStaff}/>
+      </>)}
     </div>
   </div>);
 }

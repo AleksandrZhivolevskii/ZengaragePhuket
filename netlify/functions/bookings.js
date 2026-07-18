@@ -1,5 +1,6 @@
 // netlify/functions/bookings.js
 const { Pool } = require('pg');
+const { verifyAuth } = require('../../lib/authlib');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -30,6 +31,8 @@ exports.handler = async (event) => {
   }
 
   try {
+    const _a = verifyAuth(event);
+    if (!_a.ok) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Unauthorized' }) };
     await ensureSchema();
     // ── GET ──────────────────────────────────────────────────────────────
     if (event.httpMethod === 'GET') {

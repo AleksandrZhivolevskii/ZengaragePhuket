@@ -1,5 +1,6 @@
 // netlify/functions/directory.js — база клиентов и машин
 const { Pool } = require('pg');
+const { verifyAuth } = require('../../lib/authlib');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -56,6 +57,8 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' };
 
   try {
+    const _a = verifyAuth(event);
+    if (!_a.ok) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Unauthorized' }) };
     await ensureSchema();
 
     // ── GET: все клиенты с машинами ──────────────────────────────────────────

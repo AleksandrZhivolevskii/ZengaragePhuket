@@ -1,6 +1,7 @@
 // netlify/functions/availability.js — свободные слоты мастеров для внешнего агента
 // GET /.netlify/functions/availability?from=YYYY-MM-DD&to=YYYY-MM-DD&staff=<id?>&onlyFree=1?
 const { Pool } = require('pg');
+const { verifyAuth } = require('../../lib/authlib');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -33,6 +34,8 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'GET') return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'GET only' }) };
 
   try {
+    const _a = verifyAuth(event);
+    if (!_a.ok) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Unauthorized' }) };
     const p = event.queryStringParameters || {};
     const from = p.from || iso(new Date());
     const to   = p.to   || iso(new Date(Date.now() + 14 * 86400000));
