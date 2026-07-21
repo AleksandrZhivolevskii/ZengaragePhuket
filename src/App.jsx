@@ -82,6 +82,18 @@ const DICT = {
   "Дубли определяются по имя+телефон (клиент) и VIN / гос.номеру (машина).":"Duplicates: by name+phone (client) and VIN / plate (vehicle).",
   "Ничего не найдено":"Nothing found","Компания":"Company","Заметка":"Note","Добавить":"Add",
   "Услуга":"Service","Запчасть":"Part","📈 Прибыль":"📈 Profit",
+  // типы работ (меню)
+  "ТО":"Maintenance","Мех. работы":"Mech. work","Диагностика":"Diagnostics","Электро-работы":"Electrical work",
+  "Сложный ремонт":"Complex repair","Видеорегистратор":"Dashcam","Заправка кондей":"A/C recharge","Установка фар":"Headlight install",
+  // единицы, плейсхолдеры, алерты
+  "м":"m","Бензин":"Petrol","АКПП":"Auto","телефон не указан":"no phone","Назначить":"Assign",
+  "BMW X3… (или выберите клиента)":"BMW X3… (or pick a client)",
+  "Форму добавления сделаем на следующем шаге 🙂":"The add form is coming in the next step 🙂",
+  "Приём оплаты сделаем на следующем шаге 🙂":"Payments are coming in the next step 🙂",
+  "Не удалось построить цепочку в ближайшие ~4 месяца. Попробуйте меньше времени/этапов или другую дату.":"Couldn't build the chain within ~4 months. Try less time/stages or another date.",
+  "Раб.ч/нед":"Work h/wk","Эфф.ч/нед":"Eff h/wk","Эфф.ч/мес":"Eff h/mo","КПД":"Efficiency","Дней":"Days",
+  "Готово":"Done","Добавлено клиентов":"Clients added","машин":"vehicles","Обновлено клиентов":"Clients updated",
+  "Пропущено дублей-машин":"Duplicate vehicles skipped","найдено":"found","Номер":"Plate","Импортировано клиентов":"Clients imported",
   "📊 Нагрузка команды":"📊 Team load","＋ Сотрудник":"＋ Technician","ИТОГО":"TOTAL","Сотрудник":"Technician",
   "Дней":"Days","Раб.ч/нед":"Work h/wk","Эфф.ч/нед":"Eff h/wk","Эфф.ч/мес":"Eff h/mo","КПД":"Efficiency",
   "Новый слот":"New slot","Новый":"New","Работа":"Work",
@@ -128,7 +140,7 @@ const INIT_STAFF = [
 ];
 
 const fmt  = h=>`${String(Math.floor(h)).padStart(2,"0")}:${Math.round((h%1)*60)===0?"00":"30"}`;
-const fmtH = h=>h<1?`${h*60}мин`:`${h}ч`;
+const fmtH = h=>h<1?`${h*60}${tr("мин")}`:`${h}${tr("ч")}`;
 const snap = h=>Math.round(h/STEP)*STEP;
 // Перенос текста максимум на 2 строки, дальше «…»
 const clamp2 = {display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden",wordBreak:"break-word"};
@@ -172,7 +184,7 @@ const calcStaff=s=>{
   const ew=s.slots.reduce((a,sl)=>a+(sl.eff?sl.hours*s.daysPerWeek:0),0);
   return {wh,lw,av,ew,em:ew*4,mh:wh*4,kpd:av>0?Math.round(ew/av*100):0};
 };
-const kc=k=>k<70?{bg:C.green,l:"норма"}:k<85?{bg:C.amber,l:"цель"}:{bg:C.red,l:"перегруз"};
+const kc=k=>k<70?{bg:C.green,l:tr("норма")}:k<85?{bg:C.amber,l:tr("цель")}:{bg:C.red,l:tr("перегруз")};
 const buildSlots=s=>s.slots.map(sl=>({
   id:sl.id,label:sl.label,color:sl.color,textColor:sl.textColor,
   eff:sl.eff,start:sl.startTime,end:sl.startTime+sl.hours,srcId:sl.id,
@@ -416,10 +428,10 @@ function ChainSteps({allStaff, steps, setSteps, inp, lb}){
           </div>
           <div style={{display:"flex",gap:6}}>
             <select value={st.work} onChange={e=>upd(i,{work:e.target.value})} style={{...inp,flex:2,cursor:"pointer",background:"#fff"}}>
-              {WORK_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+              {WORK_TYPES.map(t=><option key={t} value={t}>{tr(t)}</option>)}
             </select>
             <select value={st.hours} onChange={e=>upd(i,{hours:+e.target.value})} style={{...inp,flex:1,cursor:"pointer",background:"#FFFBEF",fontWeight:700}}>
-              {DURATIONS.filter(d=>d<=8).map(d=><option key={d} value={d}>{d<1?d*60+" мин":d+" ч"}</option>)}
+              {DURATIONS.filter(d=>d<=8).map(d=><option key={d} value={d}>{d<1?d*60+" "+tr("мин"):d+" "+tr("ч")}</option>)}
             </select>
           </div>
         </div>
@@ -446,12 +458,12 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
   const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:12,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
   const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>{tr(t)}</label>;
   const doSearch=()=>{
-    if(!client.trim())return alert("Введите имя клиента");
+    if(!client.trim())return alert(tr("Введите имя клиента"));
     setSearching(true);
     setTimeout(()=>{
       const opts=findChainOptions(steps,startDate,bookings,list);
       setSearching(false);
-      if(!opts.length){alert("Не удалось построить цепочку в ближайшие ~4 месяца. Попробуйте меньше времени/этапов или другую дату.");return;}
+      if(!opts.length){alert(tr("Не удалось построить цепочку в ближайшие ~4 месяца. Попробуйте меньше времени/этапов или другую дату."));return;}
       setOptions(opts);setChosen(0);setStep(2);
     },200);
   };
@@ -570,7 +582,7 @@ function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
           </div>
           <div>{lb("Тип работы")}
             <select value={work} onChange={e=>setWork(e.target.value)} style={{...inp,background:"#fff"}}>
-              {WORK_TYPES.map(t=><option key={t} value={t}>{t}</option>)}<option value="Другое">{tr("Другое...")}</option>
+              {WORK_TYPES.map(t=><option key={t} value={t}>{tr(t)}</option>)}<option value="Другое">{tr("Другое...")}</option>
             </select>
             {work==="Другое"&&<input value={workOther} onChange={e=>setWorkOther(e.target.value)} style={{...inp,marginTop:6}}/>}
           </div>
@@ -585,7 +597,7 @@ function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
           <div style={{display:"flex",gap:8}}>
             {!!existing&&<button onClick={onDelete} style={{padding:"8px 10px",border:`1px solid ${C.red}`,borderRadius:8,background:"transparent",color:C.red,cursor:"pointer",fontWeight:600}}>🗑</button>}
             <button onClick={onClose} style={{flex:1,padding:"8px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600}}>{tr("Отмена")}</button>
-            <button onClick={()=>{if(!client.trim())return alert("Введите имя");onSave({client,car,clientId,carId,work:finalWork,status,notes,startH:slot.start,dur:slot.end-slot.start,color:slot.color,endH:slot.end});}}
+            <button onClick={()=>{if(!client.trim())return alert(tr("Введите имя"));onSave({client,car,clientId,carId,work:finalWork,status,notes,startH:slot.start,dur:slot.end-slot.start,color:slot.color,endH:slot.end});}}
               style={{flex:2,padding:"8px 0",border:"none",borderRadius:8,background:C.primary,color:"#fff",cursor:"pointer",fontWeight:700}}>{existing?tr("Сохранить"):tr("Записать")}</button>
           </div>
         </div>
@@ -715,7 +727,7 @@ function WeekView({weekStart,staff,bookings,onDayClick,onSlotClick,activeStaffId
                 {items.map(({sl,bk})=>{
                   const cancelled=bk.status==="cancelled";
                   const icon=bk.status==="confirmed"?"✅":bk.status==="pending"?"⏳":"❌";
-                  const work=bk.isContinuation?"Продолжение":(bk.work||sl.label);
+                  const work=bk.isContinuation?tr("Продолжение"):(bk.work||sl.label);
                   return(<div key={sl.id} onClick={e=>{if(!isPast){e.stopPropagation();onSlotClick(s,sl,d,bk,bKey(s.id,d,sl.id));}}}
                     style={{...clamp2,fontSize:11,lineHeight:1.3,color:cancelled?C.muted:C.primary,textDecoration:cancelled?"line-through":"none",cursor:isPast?"default":"pointer"}}>
                     <span style={{marginRight:3}}>{icon}</span>
@@ -806,7 +818,7 @@ function DayView({date,staff,bookings,onSlotClick,activeStaffId}){
 
 // ── DayTimeline ───────────────────────────────────────────────────────────────
 function DayTimeline({staff,onSlotsChange}){
-  const makeBlocks=s=>{const bs=buildSlots(s).map(sl=>({...sl,isLunch:false}));bs.push({id:"__lunch__",label:"Обед",start:12,end:13,color:"#D3D1C7",textColor:"#555",eff:false,isLunch:true});return bs.sort((a,b)=>a.start-b.start);};
+  const makeBlocks=s=>{const bs=buildSlots(s).map(sl=>({...sl,isLunch:false}));bs.push({id:"__lunch__",label:tr("Обед"),start:12,end:13,color:"#D3D1C7",textColor:"#555",eff:false,isLunch:true});return bs.sort((a,b)=>a.start-b.start);};
   const [blocks,setBlocks]=useState(()=>makeBlocks(staff));
   const [selId,setSelId]=useState(null);
   const [editId,setEditId]=useState(null);
@@ -902,7 +914,7 @@ function SlotFinder({staff, bookings, onConfirm}) {
   const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:4}}>{tr(t)}</label>;
 
   const doSearch = () => {
-    if(!client.trim()) return alert("Введите имя клиента");
+    if(!client.trim()) return alert(tr("Введите имя клиента"));
     setSearching(true);setOptions(null);setConfirmed(false);setNotFound(false);
     setTimeout(()=>{
       const startDate = wantDate ? new Date(wantDate+"T00:00:00") : today();
@@ -1075,7 +1087,7 @@ function StaffSettings({staff,setStaff}){
         </div>
       </div>
       <table style={{width:"100%",borderCollapse:"collapse"}}>
-        <thead><tr>{["","Сотрудник","Дней","Ч/день","Раб.ч/нед","Эфф.ч/нед","Эфф.ч/мес","КПД",""].map((h,i)=><th key={i} style={TH}>{h}</th>)}</tr></thead>
+        <thead><tr>{["","Сотрудник","Дней","Ч/день","Раб.ч/нед","Эфф.ч/нед","Эфф.ч/мес","КПД",""].map((h,i)=><th key={i} style={TH}>{tr(h)}</th>)}</tr></thead>
         <tbody>
           {staff.map((s,i)=>{const cv=stats[i];const k=kc(cv.kpd);return(
             <tr key={s.id} style={{background:i%2===0?"#fff":"#F8FAFC"}}>
@@ -1118,13 +1130,13 @@ function StaffSettings({staff,setStaff}){
               <input value={s.role} onChange={e=>upS(s.id,"role",e.target.value)} style={{color:"rgba(255,255,255,0.7)",fontSize:10,background:"transparent",border:"none",outline:"none",display:"block",width:170,marginTop:1}}/>
             </div>
           </div>
-          <span style={{padding:"2px 10px",borderRadius:99,background:k.bg,color:"#fff",fontWeight:700,fontSize:11}}>{cv.kpd}% КПД</span>
+          <span style={{padding:"2px 10px",borderRadius:99,background:k.bg,color:"#fff",fontWeight:700,fontSize:11}}>{cv.kpd}% {tr("КПД")}</span>
         </div>
         <div style={{padding:14}}>
           <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
             {[["Дней/нед","daysPerWeek",1,7],["Ч/день","hoursDay",4,12],["Обед ч","lunch",0,2]].map(([lbl,field,min,max])=>(
               <label key={field} style={{display:"flex",flexDirection:"column",gap:3}}>
-                <span style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:"uppercase"}}>{lbl}</span>
+                <span style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:"uppercase"}}>{tr(lbl)}</span>
                 <input type="number" min={min} max={max} value={s[field]} onChange={e=>upS(s.id,field,+e.target.value)} style={{width:60,padding:"5px",border:"1.5px solid #FBC84A",borderRadius:6,fontSize:13,fontWeight:700,textAlign:"center",background:"#FFFBEF"}}/>
               </label>
             ))}
@@ -1139,7 +1151,7 @@ function StaffSettings({staff,setStaff}){
           </div>
           <div style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",marginBottom:5}}>Слоты — каждый независим</div>
           <div style={{display:"grid",gridTemplateColumns:"10px 1fr 82px 72px 36px 48px 28px 18px",gap:4,padding:"2px 8px",marginBottom:2}}>
-            {["","Название","Начало","Дл-сть","До","Цвет","Эфф",""].map((h,i)=><div key={i} style={{fontSize:8,fontWeight:700,color:C.muted,textTransform:"uppercase",textAlign:"center"}}>{h}</div>)}
+            {["","Название","Начало","Дл-сть","До","Цвет","Эфф",""].map((h,i)=><div key={i} style={{fontSize:8,fontWeight:700,color:C.muted,textTransform:"uppercase",textAlign:"center"}}>{tr(h)}</div>)}
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:6}}>
             {s.slots.map(sl=>(
@@ -1150,7 +1162,7 @@ function StaffSettings({staff,setStaff}){
                   {HOURS_LIST.map(h=><option key={h} value={h}>{fmt(h)}</option>)}
                 </select>
                 <select value={sl.hours} onChange={e=>upSl(s.id,sl.id,"hours",+e.target.value)} style={{border:"1.5px solid #FBC84A",borderRadius:5,padding:"3px 4px",fontSize:10,background:"#FFFBEF",width:"100%",fontWeight:700}}>
-                  {DURATIONS.map(d=><option key={d} value={d}>{d<1?d*60+"м":d+"ч"}</option>)}
+                  {DURATIONS.map(d=><option key={d} value={d}>{d<1?d*60+tr("м"):d+tr("ч")}</option>)}
                 </select>
                 <div style={{fontSize:9,color:C.muted,textAlign:"center",fontWeight:600}}>{fmt(sl.startTime+sl.hours)}</div>
                 <select value={sl.color} onChange={e=>upSl(s.id,sl.id,"color",e.target.value)} style={{border:`1px solid ${C.border}`,borderRadius:5,padding:2,fontSize:10,background:sl.color,width:"100%"}}>
@@ -1189,7 +1201,7 @@ function Modal({title,onClose,children}){
 }
 
 // Текст машины для отображения в записи
-const carLabel=(cr)=>([cr.make,cr.model].filter(Boolean).join(" ")||cr.plate||"Машина");
+const carLabel=(cr)=>([cr.make,cr.model].filter(Boolean).join(" ")||cr.plate||tr("Машина"));
 // Строка для поиска по ВСЕМ параметрам клиента и его машин
 const clientHaystack=c=>[c.name,c.phone,c.email,c.messenger,c.contactPerson,c.taxNumber,c.companyAddress,c.note,
   ...((c.cars||[]).flatMap(x=>[x.make,x.model,x.submodel,x.year,x.fuel,x.vin,x.plate,x.drivetrain,x.transmission,x.bodytype]))
@@ -1215,8 +1227,8 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
 
   const pickClient=(c)=>{const cs=c.cars||[];const patch={client:c.name,clientId:c.id,car:"",carId:null};if(cs.length===1){patch.car=carLabel(cs[0]);patch.carId=cs[0].id;}onChange(patch);setOpen(false);};
   const pickCar=(cr)=>onChange({car:carLabel(cr),carId:cr.id});
-  const doAddClient=async()=>{const name=(addC.name||"").trim();if(!name)return alert("Введите имя");setBusy(true);const r=await apiPost('/directory',{op:'upsertClient',client:{name,phone:addC.phone||"",email:addC.email||"",type:addC.type||"individual",contactPerson:addC.contactPerson||"",taxNumber:addC.taxNumber||"",companyAddress:addC.companyAddress||""}}).catch(()=>null);setBusy(false);if(r&&r.success){load(l=>{const nc=l.find(x=>x.id===r.id);if(nc)pickClient(nc);});setAddC(null);}else alert("Не удалось добавить клиента");};
-  const doAddCar=async()=>{if(!clientId)return;setBusy(true);const r=await apiPost('/directory',{op:'upsertCar',car:{client_id:clientId,make:addCar.make||"",model:addCar.model||"",vin:addCar.vin||"",plate:addCar.plate||""}}).catch(()=>null);setBusy(false);if(r&&r.success){load(l=>{const nc=l.find(x=>x.id===clientId);const cr=nc&&(nc.cars||[]).find(x=>x.id===r.id);if(cr)pickCar(cr);});setAddCar(null);}else alert("Не удалось добавить машину");};
+  const doAddClient=async()=>{const name=(addC.name||"").trim();if(!name)return alert(tr("Введите имя"));setBusy(true);const r=await apiPost('/directory',{op:'upsertClient',client:{name,phone:addC.phone||"",email:addC.email||"",type:addC.type||"individual",contactPerson:addC.contactPerson||"",taxNumber:addC.taxNumber||"",companyAddress:addC.companyAddress||""}}).catch(()=>null);setBusy(false);if(r&&r.success){load(l=>{const nc=l.find(x=>x.id===r.id);if(nc)pickClient(nc);});setAddC(null);}else alert(tr("Не удалось добавить клиента"));};
+  const doAddCar=async()=>{if(!clientId)return;setBusy(true);const r=await apiPost('/directory',{op:'upsertCar',car:{client_id:clientId,make:addCar.make||"",model:addCar.model||"",vin:addCar.vin||"",plate:addCar.plate||""}}).catch(()=>null);setBusy(false);if(r&&r.success){load(l=>{const nc=l.find(x=>x.id===clientId);const cr=nc&&(nc.cars||[]).find(x=>x.id===r.id);if(cr)pickCar(cr);});setAddCar(null);}else alert(tr("Не удалось добавить машину"));};
   const link={fontSize:11,fontWeight:700,color:C.sub,background:"transparent",border:"none",cursor:"pointer",padding:"5px 0",marginTop:2};
   const ghost={flex:1,padding:"8px 0",border:`1px solid ${C.border}`,borderRadius:8,background:"#F0F4F8",color:C.primary,cursor:"pointer",fontWeight:600};
   const prim={flex:2,padding:"8px 0",border:"none",borderRadius:8,background:C.primary,color:"#fff",cursor:"pointer",fontWeight:700,opacity:busy?0.6:1};
@@ -1250,7 +1262,7 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
         ):<div style={{fontSize:11,color:C.muted}}>У клиента пока нет машин</div>}
         <button type="button" onClick={()=>setAddCar({make:"",model:"",vin:"",plate:""})} style={link}>＋ Добавить машину</button>
       </div>):(
-        <input value={car} onChange={e=>onChange({car:e.target.value,carId:null})} placeholder="BMW X3… (или выберите клиента)" style={inp}/>
+        <input value={car} onChange={e=>onChange({car:e.target.value,carId:null})} placeholder={tr("BMW X3… (или выберите клиента)")} style={inp}/>
       )}
     </div>
     {addC&&<Modal title={tr("Новый клиент")} onClose={()=>setAddC(null)}>
@@ -1264,7 +1276,7 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
         </div>
         <div><L>{addC.type==="company"?"Название компании *":"Имя *"}</L><input autoFocus value={addC.name} onChange={e=>setAddC({...addC,name:e.target.value})} placeholder={addC.type==="company"?tr("ООО «Ромашка»"):""} style={inp}/></div>
         {addC.type==="company"&&<>
-          <div><L>Контактное лицо</L><input value={addC.contactPerson} onChange={e=>setAddC({...addC,contactPerson:e.target.value})} placeholder="Имя представителя" style={inp}/></div>
+          <div><L>Контактное лицо</L><input value={addC.contactPerson} onChange={e=>setAddC({...addC,contactPerson:e.target.value})} placeholder={tr("Имя представителя")} style={inp}/></div>
           <div><L>Налоговый номер</L><input value={addC.taxNumber} onChange={e=>setAddC({...addC,taxNumber:e.target.value})} placeholder={tr("Необязательно")} style={inp}/></div>
           <div><L>Адрес компании</L><textarea value={addC.companyAddress} onChange={e=>setAddC({...addC,companyAddress:e.target.value})} rows={2} placeholder={tr("Необязательно")} style={{...inp,resize:"vertical"}}/></div>
         </>}
@@ -1310,13 +1322,13 @@ function ClientBase(){
 
   const saveClient=async()=>{
     const c=clientForm;
-    if(!c.name||!c.name.trim())return alert("Введите имя клиента");
+    if(!c.name||!c.name.trim())return alert(tr("Введите имя клиента"));
     setBusy(true);await apiPost('/directory',{op:'upsertClient',client:c}).catch(()=>{});
     setBusy(false);setClientForm(null);load();
   };
-  const delClient=async(id)=>{if(!confirm("Удалить клиента и все его машины?"))return;setBusy(true);await apiPost('/directory',{op:'deleteClient',id}).catch(()=>{});setBusy(false);load();};
+  const delClient=async(id)=>{if(!confirm(tr("Удалить клиента и все его машины?")))return;setBusy(true);await apiPost('/directory',{op:'deleteClient',id}).catch(()=>{});setBusy(false);load();};
   const saveCar=async()=>{setBusy(true);await apiPost('/directory',{op:'upsertCar',car:carForm}).catch(()=>{});setBusy(false);setCarForm(null);load();};
-  const delCar=async(id)=>{if(!confirm("Удалить машину?"))return;setBusy(true);await apiPost('/directory',{op:'deleteCar',id}).catch(()=>{});setBusy(false);load();};
+  const delCar=async(id)=>{if(!confirm(tr("Удалить машину?")))return;setBusy(true);await apiPost('/directory',{op:'deleteCar',id}).catch(()=>{});setBusy(false);load();};
 
   // Формат = колонки исходного CRM-файла (для совместимости выгрузки/загрузки)
   const H=["Customer","Customer Email","Customer Phone","Company Name","License Plate","Make","Model","Sub Model","Year","Fuel Type","Vin Number","Drivetrain","Transmission Type","Body Type"];
@@ -1360,9 +1372,9 @@ function ClientBase(){
           if(Object.values(car).some(Boolean))map.get(key).cars.push(car);
         });
         const list=[...map.values()];
-        if(!list.length){alert("В файле не найдено клиентов. Нужна колонка «Customer» (или «Company Name»).");return;}
+        if(!list.length){alert(tr("В файле не найдено клиентов. Нужна колонка «Customer» (или «Company Name»)."));return;}
         setImp({list,cars:list.reduce((a,c)=>a+c.cars.length,0)});
-      }catch(err){alert("Не удалось прочитать файл: "+err.message);}
+      }catch(err){alert(tr("Не удалось прочитать файл: ")+err.message);}
     };
     reader.readAsArrayBuffer(file);
     e.target.value="";
@@ -1371,8 +1383,8 @@ function ClientBase(){
     if(!imp)return;setBusy(true);
     const res=await apiPost('/directory',{op:'import',mode,clients:imp.list}).catch(()=>null);
     setBusy(false);setImp(null);
-    if(res&&res.success)alert(`Готово. Добавлено клиентов: ${res.clientsAdded}, машин: ${res.carsAdded}.${mode==="upsert"?` Обновлено клиентов: ${res.clientsUpdated}, машин: ${res.carsUpdated}.`:` Пропущено дублей-машин: ${res.carsSkipped}.`}`);
-    else alert("Ошибка импорта: "+((res&&res.error)||"неизвестно"));
+    if(res&&res.success)alert(`${tr("Готово")}. ${tr("Добавлено клиентов")}: ${res.clientsAdded}, ${tr("машин")}: ${res.carsAdded}.${mode==="upsert"?` ${tr("Обновлено клиентов")}: ${res.clientsUpdated}, ${tr("машин")}: ${res.carsUpdated}.`:` ${tr("Пропущено дублей-машин")}: ${res.carsSkipped}.`}`);
+    else alert(tr("Ошибка импорта: ")+((res&&res.error)||tr("неизвестно")));
     load();
   };
   const btn=(bg,color)=>({padding:"8px 12px",fontSize:12,fontWeight:700,border:"none",borderRadius:8,cursor:"pointer",background:bg,color});
@@ -1387,7 +1399,7 @@ function ClientBase(){
       <button onClick={()=>fileRef.current&&fileRef.current.click()} style={btn("#EAF2FF",C.sub)}>{tr("⬆ Загрузить Excel")}</button>
       <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onFile} style={{display:"none"}}/>
     </div>
-    <div style={{fontSize:12,color:C.muted,marginBottom:10}}>Клиентов: {clients.length}{q?` · найдено: ${filtered.length}`:""}</div>
+    <div style={{fontSize:12,color:C.muted,marginBottom:10}}>Клиентов: {clients.length}{q?` · ${tr("найдено")}: ${filtered.length}`:""}</div>
     {filtered.length===0?<div style={{padding:30,textAlign:"center",color:C.muted}}>{tr("Ничего не найдено")}</div>:
     filtered.map(c=>{
       const open=expanded===c.id;
@@ -1432,17 +1444,17 @@ function ClientBase(){
         </div>
         <div><L>{clientForm.type==="company"?"Название компании *":"Имя *"}</L><input autoFocus value={clientForm.name} onChange={e=>setClientForm({...clientForm,name:e.target.value})} placeholder={clientForm.type==="company"?tr("ООО «Ромашка»"):tr("Иван Иванов")} style={inp}/></div>
         {clientForm.type==="company"&&<>
-          <div><L>Контактное лицо</L><input value={clientForm.contactPerson} onChange={e=>setClientForm({...clientForm,contactPerson:e.target.value})} placeholder="Имя представителя" style={inp}/></div>
+          <div><L>Контактное лицо</L><input value={clientForm.contactPerson} onChange={e=>setClientForm({...clientForm,contactPerson:e.target.value})} placeholder={tr("Имя представителя")} style={inp}/></div>
           <div><L>Налоговый номер</L><input value={clientForm.taxNumber} onChange={e=>setClientForm({...clientForm,taxNumber:e.target.value})} placeholder={tr("Необязательно")} style={inp}/></div>
           <div><L>Адрес компании</L><textarea value={clientForm.companyAddress} onChange={e=>setClientForm({...clientForm,companyAddress:e.target.value})} rows={2} placeholder={tr("Необязательно")} style={{...inp,resize:"vertical"}}/></div>
         </>}
         <div><L>Телефон</L><input value={clientForm.phone} onChange={e=>setClientForm({...clientForm,phone:e.target.value})} placeholder="+66 ..." style={inp}/></div>
         <div><L>Email</L><input value={clientForm.email} onChange={e=>setClientForm({...clientForm,email:e.target.value})} placeholder={tr("Необязательно")} style={inp}/></div>
         <div><L>Мессенджер (Telegram/WhatsApp)</L><input value={clientForm.messenger} onChange={e=>setClientForm({...clientForm,messenger:e.target.value})} placeholder="@username / +66..." style={inp}/></div>
-        <div><L>Заметка</L><textarea value={clientForm.note} onChange={e=>setClientForm({...clientForm,note:e.target.value})} rows={2} placeholder="Доп. информация" style={{...inp,resize:"vertical"}}/></div>
+        <div><L>Заметка</L><textarea value={clientForm.note} onChange={e=>setClientForm({...clientForm,note:e.target.value})} rows={2} placeholder={tr("Доп. информация")} style={{...inp,resize:"vertical"}}/></div>
         <div style={{display:"flex",gap:8,marginTop:4}}>
           <button onClick={()=>setClientForm(null)} style={{...btn("#F0F4F8",C.primary),flex:1}}>{tr("Отмена")}</button>
-          <button onClick={saveClient} disabled={busy} style={{...btn(C.primary,"#fff"),flex:2,opacity:busy?0.6:1}}>{busy?"…":"Сохранить"}</button>
+          <button onClick={saveClient} disabled={busy} style={{...btn(C.primary,"#fff"),flex:2,opacity:busy?0.6:1}}>{busy?"…":tr("Сохранить")}</button>
         </div>
       </div>
     </Modal>}
@@ -1461,14 +1473,14 @@ function ClientBase(){
           <div><L>VIN</L><input value={carForm.vin} onChange={e=>setCarForm({...carForm,vin:e.target.value})} placeholder={tr("Необязательно")} style={inp}/></div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-          <div><L>Топливо</L><input value={carForm.fuel} onChange={e=>setCarForm({...carForm,fuel:e.target.value})} placeholder="Бензин" style={inp}/></div>
-          <div><L>Коробка</L><input value={carForm.transmission} onChange={e=>setCarForm({...carForm,transmission:e.target.value})} placeholder="АКПП" style={inp}/></div>
+          <div><L>Топливо</L><input value={carForm.fuel} onChange={e=>setCarForm({...carForm,fuel:e.target.value})} placeholder={tr("Бензин")} style={inp}/></div>
+          <div><L>Коробка</L><input value={carForm.transmission} onChange={e=>setCarForm({...carForm,transmission:e.target.value})} placeholder={tr("АКПП")} style={inp}/></div>
           <div><L>Привод</L><input value={carForm.drivetrain} onChange={e=>setCarForm({...carForm,drivetrain:e.target.value})} placeholder="4WD" style={inp}/></div>
         </div>
         <div><L>Кузов</L><input value={carForm.bodytype} onChange={e=>setCarForm({...carForm,bodytype:e.target.value})} placeholder="Sedan / SUV" style={inp}/></div>
         <div style={{display:"flex",gap:8,marginTop:4}}>
           <button onClick={()=>setCarForm(null)} style={{...btn("#F0F4F8",C.primary),flex:1}}>{tr("Отмена")}</button>
-          <button onClick={saveCar} disabled={busy} style={{...btn(C.primary,"#fff"),flex:2,opacity:busy?0.6:1}}>{busy?"…":"Сохранить"}</button>
+          <button onClick={saveCar} disabled={busy} style={{...btn(C.primary,"#fff"),flex:2,opacity:busy?0.6:1}}>{busy?"…":tr("Сохранить")}</button>
         </div>
       </div>
     </Modal>}
@@ -1516,7 +1528,7 @@ function JobCard(){
           <span style={{marginLeft:8,background:C.sub,color:"#fff",borderRadius:20,padding:"1px 8px",fontSize:11}}>{rows.length}</span></div>
         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
           {extra}
-          <input placeholder="Поиск…" style={{...inp,width:140,padding:"6px 10px"}}/>
+          <input placeholder={tr("Поиск…")} style={{...inp,width:140,padding:"6px 10px"}}/>
           <button onClick={onAdd} style={{padding:"7px 14px",fontSize:12,fontWeight:700,border:"none",borderRadius:8,cursor:"pointer",background:C.primary,color:"#fff"}}>＋ {addLabel}</button>
         </div>
       </div>
@@ -1533,7 +1545,7 @@ function JobCard(){
                <td style={td}><div style={{fontWeight:700}}>{r.item}</div>
                  <div style={{fontSize:10,color:C.muted}}>Себест.: {money(r.cost)} · Прибыль: {money(calcRow(r)-(+r.cost||0))}</div>
                  {r.tag&&<div style={{fontSize:10,color:C.muted}}>🏷 {r.tag}</div>}</td>
-               <td style={{...td,color:C.sub,fontWeight:600,cursor:"pointer"}}>{r.technician||"Назначить"}</td>
+               <td style={{...td,color:C.sub,fontWeight:600,cursor:"pointer"}}>{r.technician||tr("Назначить")}</td>
                <td style={td}><span style={{fontSize:11,color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,padding:"2px 8px"}}>{tr("＋ Метка")}</span></td>
                <td style={td}>{r.qty}</td><td style={td}>{money(r.rate)}</td><td style={td}>{r.tax||0}%</td><td style={td}>{r.disc||0}%</td>
                <td style={{...td,textAlign:"right",fontWeight:700}}>{money(calcRow(r))}</td>
@@ -1549,7 +1561,7 @@ function JobCard(){
       </div>
     </div>
   );
-  const soon=()=>alert("Форму добавления сделаем на следующем шаге 🙂");
+  const soon=()=>alert(tr("Форму добавления сделаем на следующем шаге 🙂"));
 
   return(<div style={{maxWidth:1040,margin:"0 auto"}}>
     {/* Верхняя панель: номера + дата + иконки */}
@@ -1574,24 +1586,24 @@ function JobCard(){
         {selClient&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:36,height:36,borderRadius:10,background:C.sub,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>👤</div>
           <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:700,color:C.sub}}>{selClient.name}</div>
-            <div style={{fontSize:11,color:C.muted}}>{selClient.phone?`📞 ${selClient.phone}`:"телефон не указан"}{selClient.messenger?`  ·  💬 ${selClient.messenger}`:""}</div></div>
+            <div style={{fontSize:11,color:C.muted}}>{selClient.phone?`📞 ${selClient.phone}`:tr("телефон не указан")}{selClient.messenger?`  ·  💬 ${selClient.messenger}`:""}</div></div>
         </div>}
         {selCar&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:36,height:36,borderRadius:10,background:"#D9D6F5",color:"#26215C",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🚗</div>
-          <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:700,color:C.primary}}>{[selCar.make,selCar.model].filter(Boolean).join(" ")||"Машина"}</div>
-            <div style={{fontSize:11,color:C.muted}}>{selCar.plate?`Номер: ${selCar.plate}   `:""}{selCar.vin?`VIN: ${selCar.vin}`:""}</div></div>
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:700,color:C.primary}}>{[selCar.make,selCar.model].filter(Boolean).join(" ")||tr("Машина")}</div>
+            <div style={{fontSize:11,color:C.muted}}>{selCar.plate?`${tr("Номер")}: ${selCar.plate}   `:""}{selCar.vin?`VIN: ${selCar.vin}`:""}</div></div>
         </div>}
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:16}}>📍</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>{tr("Адрес счёта")}</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Пхукет, 83000":"не указан"}</div></div>
+          <span style={{fontSize:16}}>📍</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>{tr("Адрес счёта")}</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Пхукет, 83000":tr("не указан")}</div></div>
         </div>
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:16}}>🚚</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>{tr("Адрес доставки")}</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Пхукет, 83000":"не указан"}</div></div>
+          <span style={{fontSize:16}}>🚚</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>{tr("Адрес доставки")}</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Пхукет, 83000":tr("не указан")}</div></div>
         </div>
       </div>
       <div style={{flex:"1 1 300px",minWidth:260}}>
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:12,height:"100%",boxSizing:"border-box"}}>
           <div style={{fontSize:13,fontWeight:800,color:C.primary,marginBottom:8}}>{tr("📝 Ремарки клиента и рекомендации")}</div>
-          <textarea value={remarks} onChange={e=>setRemarks(e.target.value)} rows={7} placeholder="Пожелания клиента, рекомендации сервиса, инструкции…" style={{...inp,resize:"vertical"}}/>
+          <textarea value={remarks} onChange={e=>setRemarks(e.target.value)} rows={7} placeholder={tr("Пожелания клиента, рекомендации сервиса, инструкции…")} style={{...inp,resize:"vertical"}}/>
         </div>
       </div>
     </div>
@@ -1622,7 +1634,7 @@ function JobCard(){
     {/* Нижняя панель: Оплатить */}
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:16,padding:"12px 4px",flexWrap:"wrap",gap:10}}>
       <div style={{fontSize:13,color:C.muted,fontWeight:600}}>💵 {tr("Оплата по счёту")}</div>
-      <button onClick={()=>alert("Приём оплаты сделаем на следующем шаге 🙂")} style={{padding:"11px 28px",fontSize:14,fontWeight:800,border:"none",borderRadius:10,cursor:"pointer",background:C.primary,color:"#fff"}}>{tr("Оплатить")}</button>
+      <button onClick={()=>alert(tr("Приём оплаты сделаем на следующем шаге 🙂"))} style={{padding:"11px 28px",fontSize:14,fontWeight:800,border:"none",borderRadius:10,cursor:"pointer",background:C.primary,color:"#fff"}}>{tr("Оплатить")}</button>
     </div>
   </div>);
 }
