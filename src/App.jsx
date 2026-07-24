@@ -6,7 +6,7 @@ const MONTHS_EN = ["January","February","March","April","May","June","July","Aug
 const DAYS_RU   = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
 const DAYS_EN   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 // ── i18n ────────────────────────────────────────────────────────────────────
-let LANG = (typeof localStorage!=='undefined' && localStorage.getItem('zg_lang')) || 'ru';
+let LANG = 'en'; // приложение англоязычное
 // t("русский текст","english text") — возвращает по текущему языку.
 // Перерисовку запускает смена состояния языка в App (перерисовывает всё дерево).
 function useT(){ return (ru,en)=> LANG==='en'?(en===undefined?ru:en):ru; }
@@ -102,40 +102,40 @@ const DICT = {
 const tr = ru => (LANG==='en' && DICT[ru]) ? DICT[ru] : ru;
 const C = { bg:"#F4F7FA",card:"#fff",primary:"#1A3F5C",sub:"#2D6A9F",border:"#E0E8F0",muted:"#6B8090",red:"#E74C3C",green:"#27AE60",amber:"#F39C12" };
 const COLORS = ["#B5D4F4","#C5E0A0","#FDE8A0","#FBC84A","#D9D6F5","#FAC775","#B8E8D0","#7DC8A8","#DDE8D0","#F7C1C1","#EEECEA","#E8D5F5"];
-const WORK_TYPES = ["ТО","Мех. работы","Диагностика","Электро-работы","Chip Tuning","Сложный ремонт","Видеорегистратор","Заправка кондей","Установка фар","Другое"];
+const WORK_TYPES = ["Maintenance","Mech. work","Diagnostics","Electrical work","Chip Tuning","Complex repair","Dashcam","A/C recharge","Headlight install","Other"];
 const DURATIONS  = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,7,8,9,10,12,14,16,18,20,24,28,32,36,40,48,56,64,72];
 const HOURS_LIST = [8,8.5,9,9.5,10,10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,18];
 const DAY_START=8, DAY_END=19, STEP=0.5, PPH=54;
 
 const INIT_STAFF = [
-  { id:"leg", name:"Лег", role:"Механик", emoji:"🔧", daysPerWeek:6, hoursDay:8, lunch:1,
+  { id:"leg", name:"Leg", role:"Mechanic", emoji:"🔧", daysPerWeek:6, hoursDay:8, lunch:1,
     color:"#B5D4F4", textColor:"#0C447C", workDays:[1,2,3,4,5,6], slots:[
-      {id:"l1",label:"ТО — слот 1",      startTime:9,   hours:1.5,color:"#B5D4F4",textColor:"#0C447C",eff:true},
-      {id:"l2",label:"ТО — слот 2",      startTime:10.5,hours:1.5,color:"#B5D4F4",textColor:"#0C447C",eff:true},
-      {id:"l3",label:"Мех. работы 1",    startTime:13,  hours:1,  color:"#C5E0A0",textColor:"#27500A",eff:true},
-      {id:"l4",label:"Мех. работы 2",    startTime:15,  hours:1,  color:"#C5E0A0",textColor:"#27500A",eff:true},
-      {id:"l5",label:"Мех. работы 3",    startTime:17,  hours:1,  color:"#C5E0A0",textColor:"#27500A",eff:true},
-      {id:"l6",label:"Буфер",            startTime:14,  hours:1,  color:"#EEECEA",textColor:"#666",   eff:false},
+      {id:"l1",label:"Maintenance — slot 1", startTime:9,   hours:1.5,color:"#B5D4F4",textColor:"#0C447C",eff:true},
+      {id:"l2",label:"Maintenance — slot 2", startTime:10.5,hours:1.5,color:"#B5D4F4",textColor:"#0C447C",eff:true},
+      {id:"l3",label:"Mech. work 1",     startTime:13,  hours:1,  color:"#C5E0A0",textColor:"#27500A",eff:true},
+      {id:"l4",label:"Mech. work 2",     startTime:15,  hours:1,  color:"#C5E0A0",textColor:"#27500A",eff:true},
+      {id:"l5",label:"Mech. work 3",     startTime:17,  hours:1,  color:"#C5E0A0",textColor:"#27500A",eff:true},
+      {id:"l6",label:"Buffer",           startTime:14,  hours:1,  color:"#EEECEA",textColor:"#666",   eff:false},
     ]},
-  { id:"yuda", name:"Юда", role:"Механик-электрик", emoji:"⚡", daysPerWeek:6, hoursDay:8, lunch:1,
+  { id:"yuda", name:"Yuda", role:"Mechanic-electrician", emoji:"⚡", daysPerWeek:6, hoursDay:8, lunch:1,
     color:"#B8E8D0", textColor:"#085041", workDays:[1,2,3,4,5,6], slots:[
-      {id:"y1",label:"Работы до обеда",   startTime:9,  hours:3,color:"#B8E8D0",textColor:"#085041",eff:true},
-      {id:"y2",label:"Работы после обеда",startTime:13, hours:3,color:"#7DC8A8",textColor:"#064030",eff:true},
-      {id:"y3",label:"Буфер",             startTime:16, hours:2,color:"#EEECEA",textColor:"#666",   eff:false},
+      {id:"y1",label:"Morning works",    startTime:9,  hours:3,color:"#B8E8D0",textColor:"#085041",eff:true},
+      {id:"y2",label:"Afternoon works",  startTime:13, hours:3,color:"#7DC8A8",textColor:"#064030",eff:true},
+      {id:"y3",label:"Buffer",           startTime:16, hours:2,color:"#EEECEA",textColor:"#666",   eff:false},
     ]},
-  { id:"kirill", name:"Кирилл", role:"Партнёр, электрик", emoji:"🔌", daysPerWeek:5, hoursDay:8, lunch:1,
+  { id:"kirill", name:"Kirill", role:"Partner, electrician", emoji:"🔌", daysPerWeek:5, hoursDay:8, lunch:1,
     color:"#FDE8A0", textColor:"#5A3C00", workDays:[1,2,3,4,5], slots:[
-      {id:"k1",label:"Диагностика",       startTime:9,   hours:1.5,color:"#FDE8A0",textColor:"#5A3C00",eff:true},
-      {id:"k2",label:"Электро-работы 1",  startTime:10.5,hours:1.5,color:"#FAC775",textColor:"#633806",eff:true},
-      {id:"k3",label:"Электро-работы 2",  startTime:13,  hours:1.5,color:"#FAC775",textColor:"#633806",eff:true},
-      {id:"k4",label:"Буфер",             startTime:14.5,hours:1.5,color:"#EEECEA",textColor:"#666",   eff:false},
-      {id:"k5",label:"Надзор за цехом",   startTime:16,  hours:2,  color:"#DDE8D0",textColor:"#2A4F1A",eff:false},
+      {id:"k1",label:"Diagnostics",      startTime:9,   hours:1.5,color:"#FDE8A0",textColor:"#5A3C00",eff:true},
+      {id:"k2",label:"Electrical work 1",startTime:10.5,hours:1.5,color:"#FAC775",textColor:"#633806",eff:true},
+      {id:"k3",label:"Electrical work 2",startTime:13,  hours:1.5,color:"#FAC775",textColor:"#633806",eff:true},
+      {id:"k4",label:"Buffer",           startTime:14.5,hours:1.5,color:"#EEECEA",textColor:"#666",   eff:false},
+      {id:"k5",label:"Shop supervision", startTime:16,  hours:2,  color:"#DDE8D0",textColor:"#2A4F1A",eff:false},
     ]},
-  { id:"alex", name:"Алекс К.", role:"Партнёр, чип-тюнинг", emoji:"💻", daysPerWeek:5, hoursDay:8, lunch:1,
+  { id:"alex", name:"Alex K.", role:"Partner, chip tuning", emoji:"💻", daysPerWeek:5, hoursDay:8, lunch:1,
     color:"#D9D6F5", textColor:"#26215C", workDays:[1,2,3,4,5], slots:[
-      {id:"a1",label:"Сложная диагностика",startTime:9,   hours:2.5,color:"#FBC84A",textColor:"#5A3C00",eff:true},
-      {id:"a2",label:"Сложный ремонт",     startTime:13,  hours:2.5,color:"#D9D6F5",textColor:"#26215C",eff:true},
-      {id:"a3",label:"Буфер",              startTime:15.5,hours:2.5,color:"#EEECEA",textColor:"#666",   eff:false},
+      {id:"a1",label:"Advanced diagnostics",startTime:9,  hours:2.5,color:"#FBC84A",textColor:"#5A3C00",eff:true},
+      {id:"a2",label:"Complex repair",   startTime:13,  hours:2.5,color:"#D9D6F5",textColor:"#26215C",eff:true},
+      {id:"a3",label:"Buffer",           startTime:15.5,hours:2.5,color:"#EEECEA",textColor:"#666",   eff:false},
     ]},
 ];
 
@@ -411,7 +411,7 @@ function findChainOptions(steps, startDate, bookings, staffList, count=3){
 
 // ── SMART BOOKING MODAL ───────────────────────────────────────────────────────
 function ChainSteps({allStaff, steps, setSteps, inp, lb}){
-  const add=()=>setSteps([...steps,{staffId:(allStaff[0]||{}).id,work:"ТО",hours:1.5}]);
+  const add=()=>setSteps([...steps,{staffId:(allStaff[0]||{}).id,work:"Maintenance",hours:1.5}]);
   const upd=(i,p)=>setSteps(steps.map((s,j)=>j===i?{...s,...p}:s));
   const rm=(i)=>setSteps(steps.filter((_,j)=>j!==i));
   return(<div>
@@ -444,7 +444,7 @@ function ChainSteps({allStaff, steps, setSteps, inp, lb}){
 function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConfirm,onClose}){
   const list=allStaff||[staff];
   const [step,setStep]=useState(1);
-  const [steps,setSteps]=useState([{staffId:staff.id,work:initialSlot?.label||"ТО",hours:initialSlot?(initialSlot.end-initialSlot.start):1.5}]);
+  const [steps,setSteps]=useState([{staffId:staff.id,work:initialSlot?.label||"Maintenance",hours:initialSlot?(initialSlot.end-initialSlot.start):1.5}]);
   const [client,setClient]=useState("");
   const [car,setCar]=useState("");
   const [clientId,setClientId]=useState(null);
@@ -560,7 +560,7 @@ function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
   const [notes,setNotes]=useState(existing?.notes||"");
   const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:12,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
   const lb=t=><label style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>{tr(t)}</label>;
-  const finalWork=work==="Другое"?workOther:work;
+  const finalWork=work==="Other"?workOther:work;
   const isCont=existing?.isContinuation;
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(26,63,92,0.55)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:12,overflowY:"auto"}}>
@@ -582,9 +582,9 @@ function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
           </div>
           <div>{lb("Тип работы")}
             <select value={work} onChange={e=>setWork(e.target.value)} style={{...inp,background:"#fff"}}>
-              {WORK_TYPES.map(t=><option key={t} value={t}>{tr(t)}</option>)}<option value="Другое">{tr("Другое...")}</option>
+              {WORK_TYPES.map(t=><option key={t} value={t}>{tr(t)}</option>)}<option value="Other">{tr("Другое...")}</option>
             </select>
-            {work==="Другое"&&<input value={workOther} onChange={e=>setWorkOther(e.target.value)} style={{...inp,marginTop:6}}/>}
+            {work==="Other"&&<input value={workOther} onChange={e=>setWorkOther(e.target.value)} style={{...inp,marginTop:6}}/>}
           </div>
           <ClientCarPicker client={client} car={car} clientId={clientId} carId={carId} inp={inp} autoFocus
             onChange={p=>{if('client'in p)setClient(p.client);if('car'in p)setCar(p.car);if('clientId'in p)setClientId(p.clientId);if('carId'in p)setCarId(p.carId);}}/>
@@ -896,7 +896,7 @@ function DayTimeline({staff,onSlotsChange}){
 
 // ── SLOT FINDER PANEL ─────────────────────────────────────────────────────────
 function SlotFinder({staff, bookings, onConfirm}) {
-  const [steps,      setSteps]      = useState([{staffId:staff[0]?.id||"",work:"ТО",hours:1.5}]);
+  const [steps,      setSteps]      = useState([{staffId:staff[0]?.id||"",work:"Maintenance",hours:1.5}]);
   const [wantDate,   setWantDate]   = useState(""); // ISO yyyy-mm-dd, optional
   const [client,     setClient]     = useState("");
   const [car,        setCar]        = useState("");
@@ -1069,9 +1069,9 @@ function StaffSettings({staff,setStaff}){
   const tEW=stats.reduce((a,s)=>a+s.ew,0),aKpd=stats.length?Math.round(stats.reduce((a,s)=>a+s.kpd,0)/stats.length):0;
   const upS=(id,f,v)=>setStaff(p=>p.map(s=>s.id!==id?s:{...s,[f]:v}));
   const upSl=(sid,slid,f,v)=>setStaff(p=>p.map(s=>s.id!==sid?s:{...s,slots:s.slots.map(sl=>sl.id!==slid?sl:{...sl,[f]:v})}));
-  const addSl=sid=>setStaff(p=>p.map(s=>s.id!==sid?s:{...s,slots:[...s.slots,{id:uid(),label:"Новый слот",startTime:9,hours:1,color:"#B5D4F4",textColor:"#0C447C",eff:true}]}));
+  const addSl=sid=>setStaff(p=>p.map(s=>s.id!==sid?s:{...s,slots:[...s.slots,{id:uid(),label:"New slot",startTime:9,hours:1,color:"#B5D4F4",textColor:"#0C447C",eff:true}]}));
   const rmSl=(sid,slid)=>setStaff(p=>p.map(s=>s.id!==sid?s:{...s,slots:s.slots.filter(sl=>sl.id!==slid)}));
-  const addStaff=()=>setStaff(p=>[...p,{id:uid(),name:"Новый",role:"Сотрудник",emoji:"👨‍🔧",daysPerWeek:5,hoursDay:8,lunch:1,color:"#B8E8D0",textColor:"#085041",workDays:[1,2,3,4,5],slots:[{id:uid(),label:"Работа",startTime:9,hours:2,color:"#B8E8D0",textColor:"#085041",eff:true}]}]);
+  const addStaff=()=>setStaff(p=>[...p,{id:uid(),name:"New",role:"Staff",emoji:"👨‍🔧",daysPerWeek:5,hoursDay:8,lunch:1,color:"#B8E8D0",textColor:"#085041",workDays:[1,2,3,4,5],slots:[{id:uid(),label:"Work",startTime:9,hours:2,color:"#B8E8D0",textColor:"#085041",eff:true}]}]);
   const rmStaff=id=>setStaff(p=>p.filter(s=>s.id!==id));
   const [openId,setOpenId]=useState(null);
   const TH={padding:"7px 10px",fontSize:10,fontWeight:700,color:"#fff",background:C.primary,textAlign:"center",whiteSpace:"nowrap"};
@@ -1741,8 +1741,6 @@ function MainApp({user,onLogout}){
   const [syncing,setSyncing]  = useState(false);
   const [lastSync,setLastSync]= useState(null);
   const [appTab,setAppTab]    = useState("calendar");
-  const [lang,setLangState]   = useState(LANG);
-  const setLang=l=>{LANG=l;setLangState(l);try{localStorage.setItem('zg_lang',l);}catch(e){}};
   const t=useT();
   const [view,setView]        = useState("month");
   const [curDate,setCurDate]  = useState(today);
@@ -1867,7 +1865,6 @@ function MainApp({user,onLogout}){
             <button key={id} onClick={()=>setAppTab(id)} style={{padding:"5px 11px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer",borderRadius:6,background:appTab===id?"#fff":"transparent",color:appTab===id?C.primary:"rgba(255,255,255,0.8)"}}>{l}</button>
           ))}
         </div>
-        <button onClick={()=>setLang(lang==='en'?'ru':'en')} title="Сменить язык / Switch language" style={{padding:"5px 10px",fontSize:11,fontWeight:800,border:"1px solid rgba(255,255,255,0.35)",cursor:"pointer",borderRadius:6,background:"transparent",color:"#fff"}}>{lang==='en'?'RU':'EN'}</button>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
           <span style={{fontSize:11,color:"#9BB8D0",fontWeight:600,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>👤 {user?.name||user?.username}{user?.role==='admin'?" ★":""}</span>
           <button onClick={async()=>{const np=prompt(t("Новый пароль","New password"));if(np){const r=await apiPost('/auth',{op:'changePassword',password:np});alert(r&&r.success?t("Пароль изменён","Password changed"):((r&&r.error)||"Error"));}}} title={t("Сменить пароль","Change password")} style={{padding:"5px 8px",fontSize:11,border:"1px solid rgba(255,255,255,0.35)",cursor:"pointer",borderRadius:6,background:"transparent",color:"#fff"}}>🔑</button>
