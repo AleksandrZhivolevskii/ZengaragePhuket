@@ -1649,20 +1649,22 @@ function UsersAdmin({currentUser}){
   const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:13,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
   const load=()=>apiPost('/auth',{op:'list'}).then(r=>{if(r.users)setUsers(r.users);}).catch(()=>{});
   useEffect(load,[]);
-  const create=async()=>{if(!form.username.trim()||!form.password)return alert(t("Логин и пароль обязательны","Login and password required"));setBusy(true);const r=await apiPost('/auth',{op:'create',username:form.username.trim(),name:form.name,password:form.password,role:form.role}).catch(()=>null);setBusy(false);if(r&&r.success){setForm(null);load();}else alert((r&&r.error)||"Error");};
+  const create=async()=>{if(!form.username.trim()||!form.password)return alert(t("Логин и пароль обязательны","Login and password required"));setBusy(true);const r=await apiPost('/auth',{op:'create',username:form.username.trim(),name:form.name,email:form.email,password:form.password,role:form.role}).catch(()=>null);setBusy(false);if(r&&r.success){setForm(null);load();}else alert((r&&r.error)||"Error");};
   const resetPw=async(u)=>{const np=prompt(t("Новый пароль для","New password for")+" "+u.username);if(!np)return;const r=await apiPost('/auth',{op:'resetPassword',id:u.id,password:np});alert(r&&r.success?t("Пароль обновлён","Password updated"):((r&&r.error)||"Error"));};
+  const setEmail=async(u)=>{const em=prompt(t("Email для восстановления пароля","Recovery email for")+" "+u.username,u.email||"");if(em===null)return;const r=await apiPost('/auth',{op:'setEmail',id:u.id,email:em.trim()});if(r&&r.success)load();else alert((r&&r.error)||"Error");};
   const del=async(u)=>{if(!confirm(t("Удалить пользователя","Delete user")+" "+u.username+"?"))return;const r=await apiPost('/auth',{op:'delete',id:u.id});if(r&&r.success)load();else alert((r&&r.error)||"Error");};
   const btn=(bg,color)=>({padding:"5px 9px",fontSize:11,fontWeight:700,border:"none",borderRadius:7,cursor:"pointer",background:bg,color});
   return(<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:14,marginBottom:14,maxWidth:900}}>
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
       <div style={{fontWeight:800,color:C.primary,fontSize:15}}>👥 {t("Пользователи","Users")}</div>
-      <button onClick={()=>setForm({username:"",name:"",password:"",role:"staff"})} style={btn(C.primary,"#fff")}>＋ {t("Сотрудник","User")}</button>
+      <button onClick={()=>setForm({username:"",name:"",email:"",password:"",role:"staff"})} style={btn(C.primary,"#fff")}>＋ {t("Сотрудник","User")}</button>
     </div>
     {users.map(u=>(<div key={u.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:C.bg,borderRadius:8,marginBottom:6}}>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:13,fontWeight:700,color:C.primary}}>{u.name||u.username} {u.role==='admin'&&<span style={{fontSize:9,color:C.sub,background:"#EAF2FF",borderRadius:4,padding:"1px 6px"}}>admin</span>}</div>
-        <div style={{fontSize:11,color:C.muted}}>@{u.username}</div>
+        <div style={{fontSize:11,color:C.muted}}>@{u.username}{u.email?`  ·  ✉ ${u.email}`:`  ·  ${t("нет email","no email")}`}</div>
       </div>
+      <button onClick={()=>setEmail(u)} style={btn("#EAF2FF",C.sub)} title={t("Email для восстановления","Recovery email")}>✉</button>
       <button onClick={()=>resetPw(u)} style={btn("#EAF2FF",C.sub)}>🔑 {t("Пароль","Password")}</button>
       {u.id!==currentUser.id&&<button onClick={()=>del(u)} style={btn("transparent",C.red)}>🗑</button>}
     </div>))}
@@ -1671,6 +1673,7 @@ function UsersAdmin({currentUser}){
         <input value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder={t("Логин","Login")} autoCapitalize="none" style={inp}/>
         <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder={t("Имя","Name")} style={inp}/>
       </div>
+      <input value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder={t("Email для восстановления пароля","Recovery email")} type="email" autoCapitalize="none" style={inp}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
         <input value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder={t("Стартовый пароль","Initial password")} style={inp}/>
         <select value={form.role} onChange={e=>setForm({...form,role:e.target.value})} style={{...inp,background:"#fff"}}>
@@ -1688,39 +1691,86 @@ function UsersAdmin({currentUser}){
 // ── ЭКРАН ВХОДА ───────────────────────────────────────────────────────────────
 function LoginScreen({onAuth}){
   const t=useT();
-  const [mode,setMode]=useState(null); // 'login' | 'bootstrap'
+  const [mode,setMode]=useState(null); // 'login' | 'bootstrap' | 'reset' | 'resetCode'
   const [username,setUsername]=useState("");
   const [password,setPassword]=useState("");
   const [name,setName]=useState("");
+  const [email,setEmail]=useState("");
+  const [code,setCode]=useState("");
+  const [info,setInfo]=useState("");
   const [err,setErr]=useState("");
   const [busy,setBusy]=useState(false);
   useEffect(()=>{apiPost('/auth',{op:'status'}).then(r=>setMode(r&&r.hasUsers?'login':'bootstrap')).catch(()=>setMode('login'));},[]);
+  const go=m=>{setErr("");setInfo("");setMode(m);};
   const submit=async()=>{
     if(!username.trim()||!password){setErr(t("Введите логин и пароль","Enter login and password"));return;}
     setBusy(true);setErr("");
-    const r=await apiPost('/auth',{op:mode==='bootstrap'?'bootstrap':'login',username:username.trim(),password,name}).catch(()=>null);
+    const r=await apiPost('/auth',{op:mode==='bootstrap'?'bootstrap':'login',username:username.trim(),password,name,email}).catch(()=>null);
     setBusy(false);
     if(r&&r.success&&r.token)onAuth(r.token,r.user);
     else setErr((r&&r.error)||t("Ошибка входа","Login error"));
   };
+  const requestReset=async()=>{
+    if(!username.trim()){setErr(t("Введите логин или email","Enter login or email"));return;}
+    setBusy(true);setErr("");setInfo("");
+    const r=await apiPost('/auth',{op:'requestReset',login:username.trim()}).catch(()=>null);
+    setBusy(false);
+    if(r&&r.success){setInfo(r.emailHint?t("Код отправлен на","Code sent to")+" "+r.emailHint:(r.message||t("Проверьте почту","Check your email")));go2Code();}
+    else setErr((r&&r.error)||t("Не удалось отправить код","Could not send the code"));
+  };
+  const go2Code=()=>{setMode('resetCode');};
+  const confirmReset=async()=>{
+    if(!code.trim()||!password){setErr(t("Введите код и новый пароль","Enter the code and a new password"));return;}
+    setBusy(true);setErr("");
+    const r=await apiPost('/auth',{op:'confirmReset',login:username.trim(),code:code.trim(),password}).catch(()=>null);
+    setBusy(false);
+    if(r&&r.success){setPassword("");setCode("");setInfo(t("Пароль изменён — войдите с новым паролем","Password changed — sign in with the new one"));setMode('login');}
+    else setErr((r&&r.error)||t("Не удалось сменить пароль","Could not change the password"));
+  };
   const inp={border:`1.5px solid ${C.border}`,borderRadius:9,padding:"11px 12px",fontSize:14,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
+  const linkBtn={background:"transparent",border:"none",color:C.sub,fontSize:12,fontWeight:700,cursor:"pointer",padding:"2px 0"};
+  const title=mode==='bootstrap'?t("Создание администратора","Create administrator")
+    :mode==='reset'?t("Восстановление пароля","Password recovery")
+    :mode==='resetCode'?t("Введите код из письма","Enter the code from email")
+    :t("Вход","Sign in");
   return(<div style={{fontFamily:"'Inter',system-ui,sans-serif",background:C.primary,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
     <div style={{background:C.card,borderRadius:16,boxShadow:"0 10px 50px rgba(0,0,0,0.3)",width:"100%",maxWidth:360,padding:"28px 24px"}}>
       <div style={{textAlign:"center",marginBottom:20}}>
         <div style={{fontSize:40}}>🔧</div>
         <div style={{fontSize:11,color:C.muted,fontWeight:700,letterSpacing:"0.12em",marginTop:4}}>ZEN GARAGE PHUKET</div>
-        <div style={{fontSize:18,fontWeight:800,color:C.primary,marginTop:6}}>{mode==='bootstrap'?t("Создание администратора","Create administrator"):t("Вход","Sign in")}</div>
+        <div style={{fontSize:18,fontWeight:800,color:C.primary,marginTop:6}}>{title}</div>
         {mode==='bootstrap'&&<div style={{fontSize:12,color:C.muted,marginTop:4}}>{t("Первый запуск — задайте админ-аккаунт","First run — set up the admin account")}</div>}
+        {mode==='reset'&&<div style={{fontSize:12,color:C.muted,marginTop:4}}>{t("Укажите логин или email — пришлём код на почту","Enter login or email — we'll send a code")}</div>}
       </div>
-      <div style={{display:"flex",flexDirection:"column",gap:10}} onKeyDown={e=>{if(e.key==='Enter')submit();}}>
+
+      {(mode==='login'||mode==='bootstrap')&&<div style={{display:"flex",flexDirection:"column",gap:10}} onKeyDown={e=>{if(e.key==='Enter')submit();}}>
         {mode==='bootstrap'&&<input value={name} onChange={e=>setName(e.target.value)} placeholder={t("Имя","Name")} style={inp}/>}
         <input value={username} onChange={e=>setUsername(e.target.value)} placeholder={t("Логин","Login")} autoFocus autoCapitalize="none" style={inp}/>
+        {mode==='bootstrap'&&<input value={email} onChange={e=>setEmail(e.target.value)} placeholder={t("Email для восстановления","Recovery email")} type="email" autoCapitalize="none" style={inp}/>}
         <input value={password} onChange={e=>setPassword(e.target.value)} placeholder={t("Пароль","Password")} type="password" style={inp}/>
+        {info&&<div style={{fontSize:12,color:C.green,textAlign:"center"}}>{info}</div>}
         {err&&<div style={{fontSize:12,color:C.red,textAlign:"center"}}>{err}</div>}
         <button onClick={submit} disabled={busy||!mode} style={{padding:"12px 0",border:"none",borderRadius:10,background:C.primary,color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer",opacity:(busy||!mode)?0.6:1,marginTop:4}}>
           {busy?"…":(mode==='bootstrap'?t("Создать","Create"):t("Войти","Sign in"))}
         </button>
-      </div>
+        {mode==='login'&&<button onClick={()=>go('reset')} style={{...linkBtn,textAlign:"center",marginTop:2}}>{t("Забыли пароль?","Forgot password?")}</button>}
+      </div>}
+
+      {mode==='reset'&&<div style={{display:"flex",flexDirection:"column",gap:10}} onKeyDown={e=>{if(e.key==='Enter')requestReset();}}>
+        <input value={username} onChange={e=>setUsername(e.target.value)} placeholder={t("Логин или email","Login or email")} autoFocus autoCapitalize="none" style={inp}/>
+        {err&&<div style={{fontSize:12,color:C.red,textAlign:"center"}}>{err}</div>}
+        <button onClick={requestReset} disabled={busy} style={{padding:"12px 0",border:"none",borderRadius:10,background:C.primary,color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer",opacity:busy?0.6:1,marginTop:4}}>{busy?"…":t("Отправить код","Send code")}</button>
+        <button onClick={()=>go('login')} style={{...linkBtn,textAlign:"center"}}>{t("← Назад ко входу","← Back to sign in")}</button>
+      </div>}
+
+      {mode==='resetCode'&&<div style={{display:"flex",flexDirection:"column",gap:10}} onKeyDown={e=>{if(e.key==='Enter')confirmReset();}}>
+        {info&&<div style={{fontSize:12,color:C.green,textAlign:"center"}}>{info}</div>}
+        <input value={code} onChange={e=>setCode(e.target.value)} placeholder={t("Код из письма","Code from email")} inputMode="numeric" autoFocus style={{...inp,textAlign:"center",letterSpacing:"0.3em",fontWeight:700}}/>
+        <input value={password} onChange={e=>setPassword(e.target.value)} placeholder={t("Новый пароль","New password")} type="password" style={inp}/>
+        {err&&<div style={{fontSize:12,color:C.red,textAlign:"center"}}>{err}</div>}
+        <button onClick={confirmReset} disabled={busy} style={{padding:"12px 0",border:"none",borderRadius:10,background:C.primary,color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer",opacity:busy?0.6:1,marginTop:4}}>{busy?"…":t("Сменить пароль","Change password")}</button>
+        <button onClick={()=>go('reset')} style={{...linkBtn,textAlign:"center"}}>{t("← Запросить новый код","← Request a new code")}</button>
+      </div>}
     </div>
   </div>);
 }
@@ -1867,6 +1917,7 @@ function MainApp({user,onLogout}){
         </div>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
           <span style={{fontSize:11,color:"#9BB8D0",fontWeight:600,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>👤 {user?.name||user?.username}{user?.role==='admin'?" ★":""}</span>
+          <button onClick={async()=>{const em=prompt(t("Email для восстановления пароля","Recovery email"),user?.email||"");if(em===null)return;const r=await apiPost('/auth',{op:'setMyEmail',email:em.trim()});alert(r&&r.success?t("Email сохранён","Email saved"):((r&&r.error)||"Error"));}} title={t("Email для восстановления","Recovery email")} style={{padding:"5px 8px",fontSize:11,border:"1px solid rgba(255,255,255,0.35)",cursor:"pointer",borderRadius:6,background:"transparent",color:"#fff"}}>✉</button>
           <button onClick={async()=>{const np=prompt(t("Новый пароль","New password"));if(np){const r=await apiPost('/auth',{op:'changePassword',password:np});alert(r&&r.success?t("Пароль изменён","Password changed"):((r&&r.error)||"Error"));}}} title={t("Сменить пароль","Change password")} style={{padding:"5px 8px",fontSize:11,border:"1px solid rgba(255,255,255,0.35)",cursor:"pointer",borderRadius:6,background:"transparent",color:"#fff"}}>🔑</button>
           <button onClick={onLogout} title={t("Выход","Log out")} style={{padding:"5px 10px",fontSize:11,fontWeight:700,border:"1px solid rgba(255,255,255,0.35)",cursor:"pointer",borderRadius:6,background:"transparent",color:"#fff"}}>{t("Выход","Log out")}</button>
         </div>
