@@ -100,7 +100,48 @@ const DICT = {
   "Название":"Name","Начало":"Start","Дл-сть":"Dur.","До":"End","Цвет":"Color","Эфф":"Eff",
 };
 const tr = ru => (LANG==='en' && DICT[ru]) ? DICT[ru] : ru;
-const C = { bg:"#F4F7FA",card:"#fff",primary:"#1A3F5C",sub:"#2D6A9F",border:"#E0E8F0",muted:"#6B8090",red:"#E74C3C",green:"#27AE60",amber:"#F39C12" };
+const C = { bg:"#F5F5F7",card:"#FFFFFF",primary:"#1D1D1F",sub:"#0071E3",border:"#D2D2D7",muted:"#6E6E73",red:"#FF3B30",green:"#34C759",amber:"#FF9F0A" };
+const MAC_CSS = `
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f5f5f7; color: #1d1d1f; -webkit-font-smoothing: antialiased; }
+  .mac-app { min-height: 100vh; background: radial-gradient(circle at 50% -20%, #ffffff 0, #f5f5f7 42%, #ececf0 100%); }
+  .mac-login { background: radial-gradient(circle at 50% 20%, #ffffff 0, #ececf1 48%, #d8d8de 100%) !important; }
+  .mac-login-card { border: 1px solid rgba(255,255,255,.8); border-radius: 22px !important; box-shadow: 0 24px 70px rgba(0,0,0,.18) !important; backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+  .mac-topbar { position: sticky; top: 0; z-index: 1000; background: rgba(250,250,252,.82) !important; border-bottom: 1px solid rgba(0,0,0,.09); box-shadow: 0 1px 18px rgba(0,0,0,.06); backdrop-filter: saturate(180%) blur(22px); -webkit-backdrop-filter: saturate(180%) blur(22px); }
+  .mac-brand-label { color: #86868b !important; letter-spacing: .14em !important; }
+  .mac-brand-title { color: #1d1d1f !important; letter-spacing: -.02em; }
+  .mac-sync { color: #86868b !important; }
+  .mac-nav { background: rgba(118,118,128,.12) !important; border: 1px solid rgba(0,0,0,.04); border-radius: 10px !important; }
+  .mac-nav button { min-height: 30px; border-radius: 8px !important; color: #515154 !important; }
+  .mac-nav button[style*="background: rgb(255, 255, 255)"], .mac-nav button[style*="background:#fff"] { color: #1d1d1f !important; box-shadow: 0 1px 4px rgba(0,0,0,.14); }
+  .mac-account { padding-left: 10px; border-left: 1px solid rgba(0,0,0,.1); }
+  .mac-account span { color: #515154 !important; }
+  .mac-account button { color: #1d1d1f !important; border: 1px solid rgba(0,0,0,.14) !important; background: rgba(255,255,255,.65) !important; }
+  .mac-account button:hover { background: #fff !important; }
+  .mac-main { max-width: 1440px !important; padding: 20px 22px 38px !important; }
+  button, input, select, textarea { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif !important; }
+  button { transition: transform .14s ease, box-shadow .14s ease, background .14s ease, opacity .14s ease; }
+  button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.10); }
+  button:active:not(:disabled) { transform: translateY(0) scale(.985); }
+  input, select, textarea { border-color: #d2d2d7 !important; border-radius: 9px !important; background: rgba(255,255,255,.92) !important; box-shadow: inset 0 0 0 1px rgba(0,0,0,.015); }
+  input:focus, select:focus, textarea:focus { border-color: #0071e3 !important; box-shadow: 0 0 0 3px rgba(0,113,227,.15) !important; }
+  table { background: rgba(255,255,255,.72); }
+  th { letter-spacing: .02em; }
+  .mac-surface { border: 1px solid rgba(0,0,0,.08); border-radius: 16px !important; background: rgba(255,255,255,.82) !important; box-shadow: 0 8px 28px rgba(0,0,0,.055) !important; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+  .mac-window-dots { display: flex; gap: 7px; margin-right: 4px; }
+  .mac-window-dots i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+  .mac-window-dots i:nth-child(1) { background:#ff5f57; }
+  .mac-window-dots i:nth-child(2) { background:#febc2e; }
+  .mac-window-dots i:nth-child(3) { background:#28c840; }
+  @media (max-width: 800px) {
+    .mac-topbar { position: relative; }
+    .mac-main { padding: 12px 10px 26px !important; }
+    .mac-account { border-left: 0; padding-left: 0; }
+    .mac-nav { width: 100%; overflow-x: auto; }
+    .mac-nav button { white-space: nowrap; }
+  }
+`;
 const COLORS = ["#B5D4F4","#C5E0A0","#FDE8A0","#FBC84A","#D9D6F5","#FAC775","#B8E8D0","#7DC8A8","#DDE8D0","#F7C1C1","#EEECEA","#E8D5F5"];
 const WORK_TYPES = ["Maintenance","Mech. work","Diagnostics","Electrical work","Chip Tuning","Complex repair","Dashcam","A/C recharge","Headlight install","Other"];
 const DURATIONS  = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,7,8,9,10,12,14,16,18,20,24,28,32,36,40,48,56,64,72];
@@ -1734,8 +1775,8 @@ function LoginScreen({onAuth}){
     :mode==='reset'?t("Восстановление пароля","Password recovery")
     :mode==='resetCode'?t("Введите код из письма","Enter the code from email")
     :t("Вход","Sign in");
-  return(<div style={{fontFamily:"'Inter',system-ui,sans-serif",background:C.primary,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-    <div style={{background:C.card,borderRadius:16,boxShadow:"0 10px 50px rgba(0,0,0,0.3)",width:"100%",maxWidth:360,padding:"28px 24px"}}>
+  return(<div className="mac-login" style={{fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif",background:C.primary,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+    <div className="mac-login-card" style={{background:"rgba(255,255,255,.82)",borderRadius:16,boxShadow:"0 10px 50px rgba(0,0,0,0.3)",width:"100%",maxWidth:380,padding:"30px 26px"}}>
       <div style={{textAlign:"center",marginBottom:20}}>
         <div style={{fontSize:40}}>🔧</div>
         <div style={{fontSize:11,color:C.muted,fontWeight:700,letterSpacing:"0.12em",marginTop:4}}>ZEN GARAGE PHUKET</div>
@@ -1781,8 +1822,8 @@ export default function App(){
   const [user,setUser]=useState(()=>{try{return JSON.parse(localStorage.getItem('zg_user')||'null');}catch(e){return null;}});
   useEffect(()=>{onUnauthorized=()=>{setUser(null);try{localStorage.removeItem('zg_user');}catch(e){}};},[]);
   const doLogout=()=>{setAuthToken('');try{localStorage.removeItem('zg_user');}catch(e){}setUser(null);};
-  if(!user)return <LoginScreen onAuth={(token,u)=>{setAuthToken(token);try{localStorage.setItem('zg_user',JSON.stringify(u));}catch(e){}setUser(u);}}/>;
-  return <MainApp user={user} onLogout={doLogout}/>;
+  if(!user)return <><style>{MAC_CSS}</style><LoginScreen onAuth={(token,u)=>{setAuthToken(token);try{localStorage.setItem('zg_user',JSON.stringify(u));}catch(e){}setUser(u);}}/></>;
+  return <><style>{MAC_CSS}</style><MainApp user={user} onLogout={doLogout}/></>;
 }
 
 function MainApp({user,onLogout}){
@@ -1893,17 +1934,20 @@ function MainApp({user,onLogout}){
     </div>
   );
 
-  return(<div style={{fontFamily:"'Inter',system-ui,sans-serif",background:C.bg,minHeight:"100vh"}}>
+  return(<div className="mac-app" style={{fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif",background:C.bg,minHeight:"100vh"}}>
     {modal?.type==="smart"&&<SmartBookingModal staff={modal.staff} allStaff={staff} startDate={modal.startDate} initialSlot={modal.initialSlot} bookings={bookings} onConfirm={confirmMulti} onClose={()=>setModal(null)}/>}
     {modal?.type==="single"&&<SlotModal staff={modal.staff} slot={modal.slot} date={modal.date} existing={modal.existing} onSave={data=>{book(modal.key,data);setModal(null);}} onDelete={()=>{unbook(modal.key);setModal(null);}} onClose={()=>setModal(null)}/>}
 
-    <div style={{background:C.primary,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-      <div>
-        <div style={{fontSize:9,color:"#7BAAC8",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>ZEN GARAGE PHUKET</div>
-        <div style={{fontSize:16,fontWeight:800,color:"#fff",marginTop:1}}>{appTab==="calendar"?t("Календарь записи","Booking calendar"):appTab==="finder"?t("Подбор слота","Slot finder"):appTab==="jobcard"?t("Джоб-карта","Job card"):appTab==="clients"?t("База клиентов","Client base"):t("Настройки команды","Team settings")}</div>
-        {lastSync&&<div style={{fontSize:8,color:"#5A8AAC",marginTop:1}}>
+    <div className="mac-topbar" style={{background:C.primary,padding:"11px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <span className="mac-window-dots" aria-hidden="true"><i/><i/><i/></span>
+        <div>
+        <div className="mac-brand-label" style={{fontSize:9,color:"#7BAAC8",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase"}}>ZEN GARAGE PHUKET</div>
+        <div className="mac-brand-title" style={{fontSize:17,fontWeight:750,color:"#fff",marginTop:1}}>{appTab==="calendar"?t("Календарь записи","Booking calendar"):appTab==="finder"?t("Подбор слота","Slot finder"):appTab==="jobcard"?t("Джоб-карта","Job card"):appTab==="clients"?t("База клиентов","Client base"):t("Настройки команды","Team settings")}</div>
+        {lastSync&&<div className="mac-sync" style={{fontSize:9,color:"#5A8AAC",marginTop:1}}>
           {syncing?t("⟳ Сохранение...","⟳ Saving..."):"✓ "+lastSync.toLocaleTimeString(LANG,{timeZone:TZ,hour:'2-digit',minute:'2-digit'})}
         </div>}
+        </div>
       </div>
       <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
         {appTab==="calendar"&&<div style={{display:"flex",gap:12}}>
@@ -1911,12 +1955,12 @@ function MainApp({user,onLogout}){
             <div key={l} style={{textAlign:"center"}}><div style={{fontSize:8,color:"#7BAAC8"}}>{l}</div><div style={{fontSize:13,fontWeight:800,color:col}}>{v}</div></div>
           ))}
         </div>}
-        <div style={{display:"flex",gap:3,background:"rgba(255,255,255,0.1)",borderRadius:8,padding:3}}>
+        <div className="mac-nav" style={{display:"flex",gap:3,background:"rgba(255,255,255,0.1)",borderRadius:8,padding:3}}>
           {[["calendar","📅 "+t("Календарь","Calendar")],["finder","🔍 "+t("Подбор","Finder")],["jobcard","🧾 "+t("Джоб-карт","Job card")],["clients","👥 "+t("База","Base")],["settings","⚙️ "+t("Настройки","Settings")]].map(([id,l])=>(
             <button key={id} onClick={()=>setAppTab(id)} style={{padding:"5px 11px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer",borderRadius:6,background:appTab===id?"#fff":"transparent",color:appTab===id?C.primary:"rgba(255,255,255,0.8)"}}>{l}</button>
           ))}
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
+        <div className="mac-account" style={{display:"flex",alignItems:"center",gap:6}}>
           <span style={{fontSize:11,color:"#9BB8D0",fontWeight:600,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>👤 {user?.name||user?.username}{user?.role==='admin'?" ★":""}</span>
           <button onClick={async()=>{const em=prompt(t("Email для восстановления пароля","Recovery email"),user?.email||"");if(em===null)return;const r=await apiPost('/auth',{op:'setMyEmail',email:em.trim()});alert(r&&r.success?t("Email сохранён","Email saved"):((r&&r.error)||"Error"));}} title={t("Email для восстановления","Recovery email")} style={{padding:"5px 8px",fontSize:11,border:"1px solid rgba(255,255,255,0.35)",cursor:"pointer",borderRadius:6,background:"transparent",color:"#fff"}}>✉</button>
           <button onClick={async()=>{const np=prompt(t("Новый пароль","New password"));if(np){const r=await apiPost('/auth',{op:'changePassword',password:np});alert(r&&r.success?t("Пароль изменён","Password changed"):((r&&r.error)||"Error"));}}} title={t("Сменить пароль","Change password")} style={{padding:"5px 8px",fontSize:11,border:"1px solid rgba(255,255,255,0.35)",cursor:"pointer",borderRadius:6,background:"transparent",color:"#fff"}}>🔑</button>
@@ -1925,7 +1969,7 @@ function MainApp({user,onLogout}){
       </div>
     </div>
 
-    <div style={{maxWidth:1200,margin:"0 auto",padding:14}}>
+    <div className="mac-main" style={{maxWidth:1200,margin:"0 auto",padding:14}}>
       {appTab==="calendar"&&(<>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:8}}>
           <div style={{display:"flex",alignItems:"center",gap:5}}>
@@ -1944,7 +1988,7 @@ function MainApp({user,onLogout}){
           <button onClick={()=>setAS("all")} style={{padding:"4px 11px",borderRadius:99,border:`2px solid ${activeStaff==="all"?C.primary:C.border}`,background:activeStaff==="all"?C.primary:C.card,color:activeStaff==="all"?"#fff":C.muted,fontSize:11,fontWeight:700,cursor:"pointer"}}>👥 {t("Все","All")}</button>
           {staff.map(s=><button key={s.id} onClick={()=>setAS(s.id)} style={{padding:"4px 11px",borderRadius:99,border:`2px solid ${activeStaff===s.id?s.color:"transparent"}`,background:activeStaff===s.id?s.color:C.card,color:activeStaff===s.id?s.textColor:C.muted,fontSize:11,fontWeight:700,cursor:"pointer"}}>{s.emoji} {s.name}</button>)}
         </div>
-        <div style={{background:C.card,borderRadius:12,padding:12,boxShadow:"0 1px 8px rgba(26,63,92,0.07)"}}>
+        <div className="mac-surface" style={{background:C.card,borderRadius:12,padding:14,boxShadow:"0 1px 8px rgba(26,63,92,0.07)"}}>
           {view==="month"&&<MonthView staff={staff} bookings={bookings} onDayClick={d=>{setCurDate(d);setView("day");}} currentDate={curMonth} activeStaffId={activeStaff}/>}
           {view==="week"&&<WeekView weekStart={weekStart} staff={staff} bookings={bookings} onDayClick={d=>{setCurDate(d);setView("day");}} onSlotClick={openSlot} activeStaffId={activeStaff}/>}
           {view==="day"&&<DayView date={curDate} staff={staff} bookings={bookings} onSlotClick={openSlot} activeStaffId={activeStaff}/>}
