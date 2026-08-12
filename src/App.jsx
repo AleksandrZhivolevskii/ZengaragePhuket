@@ -227,6 +227,8 @@ const calcStaff=s=>{
 };
 const kc=k=>k<70?{bg:C.green,l:tr("норма")}:k<85?{bg:C.amber,l:tr("цель")}:{bg:C.red,l:tr("перегруз")};
 const englishRole=role=>({Mechanik:"Mechanic",Electrisity:"Electrician"}[role]||role);
+const workDaysForCount=count=>Array.from({length:Math.max(1,Math.min(7,Number(count)||1))},(_,i)=>i+1);
+const normalizeStaffDays=s=>({...s,workDays:workDaysForCount(s.daysPerWeek)});
 const buildSlots=s=>s.slots.map(sl=>({
   id:sl.id,label:sl.label,color:sl.color,textColor:sl.textColor,
   eff:sl.eff,start:sl.startTime,end:sl.startTime+sl.hours,srcId:sl.id,
@@ -1109,7 +1111,12 @@ function SlotFinder({staff, bookings, onConfirm}) {
 function StaffSettings({staff,setStaff}){
   const stats=useMemo(()=>staff.map(s=>({id:s.id,...calcStaff(s)})),[staff]);
   const tEW=stats.reduce((a,s)=>a+s.ew,0),aKpd=stats.length?Math.round(stats.reduce((a,s)=>a+s.kpd,0)/stats.length):0;
-  const upS=(id,f,v)=>setStaff(p=>p.map(s=>s.id!==id?s:{...s,[f]:v}));
+  const upS=(id,f,v)=>setStaff(p=>p.map(s=>{
+    if(s.id!==id)return s;
+    if(f!=="daysPerWeek")return {...s,[f]:v};
+    const workDays=workDaysForCount(v);
+    return {...s,daysPerWeek:workDays.length,workDays};
+  }));
   const upSl=(sid,slid,f,v)=>setStaff(p=>p.map(s=>s.id!==sid?s:{...s,slots:s.slots.map(sl=>sl.id!==slid?sl:{...sl,[f]:v})}));
   const addSl=sid=>setStaff(p=>p.map(s=>s.id!==sid?s:{...s,slots:[...s.slots,{id:uid(),label:"New slot",startTime:9,hours:1,color:"#B5D4F4",textColor:"#0C447C",eff:true}]}));
   const rmSl=(sid,slid)=>setStaff(p=>p.map(s=>s.id!==sid?s:{...s,slots:s.slots.filter(sl=>sl.id!==slid)}));
@@ -1848,7 +1855,7 @@ function MainApp({user,onLogout}){
       apiGet('/staff').catch(()=>({staff:null})),
     ]).then(([bRes, sRes])=>{
       if(bRes.bookings) setBook(bRes.bookings);
-      if(sRes.staff)    setStaff(sRes.staff.map(s=>({...s,role:englishRole(s.role)})));
+      if(sRes.staff)    setStaff(sRes.staff.map(s=>normalizeStaffDays({...s,role:englishRole(s.role)})));
       setLastSync(new Date());
       setLoading(false);
     }).catch(()=>setLoading(false));
