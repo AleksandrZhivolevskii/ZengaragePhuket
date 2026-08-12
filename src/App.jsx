@@ -1313,7 +1313,7 @@ function ClientBase(){
   const fileRef=useRef(null);
 
   const load=()=>{setLoading(true);apiGet('/directory').then(r=>{if(r.clients)setClients(r.clients);setLoading(false);}).catch(()=>setLoading(false));};
-  useEffect(load,[]);
+  useEffect(()=>{load();},[]);
 
   const filtered=useMemo(()=>{
     const s=q.trim();
@@ -1649,7 +1649,7 @@ function UsersAdmin({currentUser}){
   const [busy,setBusy]=useState(false);
   const inp={border:`1.5px solid ${C.border}`,borderRadius:8,padding:"8px 10px",fontSize:13,width:"100%",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
   const load=()=>apiPost('/auth',{op:'list'}).then(r=>{if(r.users)setUsers(r.users);}).catch(()=>{});
-  useEffect(load,[]);
+  useEffect(()=>{load();},[]);
   const create=async()=>{if(!form.username.trim()||!form.password)return alert(t("Логин и пароль обязательны","Login and password required"));setBusy(true);const r=await apiPost('/auth',{op:'create',username:form.username.trim(),name:form.name,email:form.email,password:form.password,role:form.role}).catch(()=>null);setBusy(false);if(r&&r.success){setForm(null);load();}else alert((r&&r.error)||"Error");};
   const resetPw=async(u)=>{const np=prompt(t("Новый пароль для","New password for")+" "+u.username);if(!np)return;const r=await apiPost('/auth',{op:'resetPassword',id:u.id,password:np});alert(r&&r.success?t("Пароль обновлён","Password updated"):((r&&r.error)||"Error"));};
   const setEmail=async(u)=>{const em=prompt(t("Email для восстановления пароля","Recovery email for")+" "+u.username,u.email||"");if(em===null)return;const r=await apiPost('/auth',{op:'setEmail',id:u.id,email:em.trim()});if(r&&r.success)load();else alert((r&&r.error)||"Error");};
