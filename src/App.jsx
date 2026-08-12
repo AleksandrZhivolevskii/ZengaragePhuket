@@ -1689,6 +1689,24 @@ function JobCard(){
 }
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
+function ApiAdmin(){
+  const [keys,setKeys]=useState([]),[events,setEvents]=useState([]),[form,setForm]=useState(null),[created,setCreated]=useState(null),[busy,setBusy]=useState(false);
+  const load=()=>Promise.all([apiPost('/api-keys',{op:'list'}),apiPost('/api-keys',{op:'audit',limit:50})]).then(([k,a])=>{setKeys(k.keys||[]);setEvents(a.events||[]);}).catch(()=>{});
+  useEffect(()=>{load();},[]);
+  const create=async()=>{if(!form.name.trim())return alert('Key name is required');setBusy(true);const r=await apiPost('/api-keys',{op:'create',name:form.name.trim(),scopes:form.scopes,expiresAt:form.expiresAt||null}).catch(()=>null);setBusy(false);if(r&&r.success){setCreated(r.key);setForm(null);load();}else alert((r&&r.error)||'Could not create API key');};
+  const revoke=async k=>{if(!confirm(`Revoke API key “${k.name}”? The agent will immediately lose access.`))return;await apiPost('/api-keys',{op:'revoke',id:k.id});load();};
+  const toggle=scope=>setForm(f=>({...f,scopes:f.scopes.includes(scope)?f.scopes.filter(x=>x!==scope):[...f.scopes,scope]}));
+  const copy=async()=>{try{await navigator.clipboard.writeText(created);alert('API key copied');}catch(e){alert('Copy the key manually');}};
+  const fmtDate=v=>v?new Date(v).toLocaleString('en-GB',{timeZone:TZ}):'—';
+  return <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:14,marginBottom:14,maxWidth:1100,boxShadow:'0 6px 20px rgba(0,0,0,.04)'}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom:12}}><div><div style={{fontWeight:800,fontSize:15}}>🔐 AI API access</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>Hashed keys, scoped permissions, expiration, revocation and audit log</div></div><button onClick={()=>setForm({name:'AI agent',scopes:['read','write','delete'],expiresAt:''})} style={{padding:'7px 12px',border:0,borderRadius:8,background:C.primary,color:'#fff',fontWeight:700,cursor:'pointer'}}>＋ API key</button></div>
+    {created&&<div style={{background:'#FFF8E1',border:'1px solid #FFD166',borderRadius:10,padding:12,marginBottom:12}}><div style={{fontWeight:800,fontSize:12,color:'#7A5200'}}>Save this key now — it will never be shown again</div><div style={{display:'flex',gap:8,marginTop:7}}><input readOnly value={created} style={{flex:1,padding:8,fontFamily:'monospace',fontSize:11}}/><button onClick={copy} style={{padding:'6px 12px',border:`1px solid ${C.border}`,borderRadius:8,background:'#fff',cursor:'pointer'}}>Copy</button><button onClick={()=>setCreated(null)} style={{padding:'6px 10px',border:0,background:'transparent',cursor:'pointer'}}>×</button></div></div>}
+    {form&&<div style={{display:'grid',gridTemplateColumns:'minmax(180px,1fr) auto auto',gap:10,alignItems:'end',background:C.bg,borderRadius:10,padding:12,marginBottom:12}}><label style={{fontSize:11,fontWeight:700}}>Key name<input autoFocus value={form.name} onChange={e=>setForm({...form,name:e.target.value})} style={{display:'block',width:'100%',padding:8,marginTop:4}}/></label><label style={{fontSize:11,fontWeight:700}}>Expires (optional)<input type="date" value={form.expiresAt} onChange={e=>setForm({...form,expiresAt:e.target.value})} style={{display:'block',padding:8,marginTop:4}}/></label><div style={{display:'flex',gap:8}}>{['read','write','delete'].map(s=><label key={s} style={{fontSize:11}}><input type="checkbox" checked={form.scopes.includes(s)} disabled={s==='read'} onChange={()=>toggle(s)}/> {s}</label>)}</div><div style={{display:'flex',gap:8,gridColumn:'1/-1'}}><button onClick={()=>setForm(null)} style={{padding:'7px 14px',border:`1px solid ${C.border}`,borderRadius:8,background:'#fff'}}>Cancel</button><button disabled={busy} onClick={create} style={{padding:'7px 14px',border:0,borderRadius:8,background:C.sub,color:'#fff',fontWeight:700}}>Create secure key</button></div></div>}
+    <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}><thead><tr>{['Name','Prefix','Scopes','Created','Last used','Expires','Status',''].map(h=><th key={h} style={{textAlign:'left',padding:'7px 8px',borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{keys.map(k=><tr key={k.id}><td style={{padding:8,fontWeight:700}}>{k.name}</td><td style={{padding:8,fontFamily:'monospace'}}>{k.key_prefix}…</td><td style={{padding:8}}>{(k.scopes||[]).join(', ')}</td><td style={{padding:8}}>{fmtDate(k.created_at)}</td><td style={{padding:8}}>{fmtDate(k.last_used_at)}</td><td style={{padding:8}}>{fmtDate(k.expires_at)}</td><td style={{padding:8,color:k.revoked_at?C.red:C.green,fontWeight:700}}>{k.revoked_at?'Revoked':'Active'}</td><td style={{padding:8}}>{!k.revoked_at&&<button onClick={()=>revoke(k)} style={{border:0,background:'transparent',color:C.red,cursor:'pointer'}}>Revoke</button>}</td></tr>)}</tbody></table></div>
+    <details style={{marginTop:12}}><summary style={{cursor:'pointer',fontWeight:800,fontSize:12}}>Audit log · latest {events.length}</summary><div style={{overflowX:'auto',maxHeight:300,marginTop:8}}><table style={{width:'100%',borderCollapse:'collapse',fontSize:10}}><thead><tr>{['Time','Key','Action','Booking','Result'].map(h=><th key={h} style={{textAlign:'left',padding:6,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{events.map(e=><tr key={e.id}><td style={{padding:6,whiteSpace:'nowrap'}}>{fmtDate(e.created_at)}</td><td style={{padding:6}}>{e.api_key_name}</td><td style={{padding:6,fontWeight:700}}>{e.action}</td><td style={{padding:6,fontFamily:'monospace'}}>{e.resource_key||'—'}</td><td style={{padding:6,color:e.success?C.green:C.red}}>{e.success?'Success':e.error_message}</td></tr>)}</tbody></table></div></details>
+  </div>;
+}
+
 // ── УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ (админ) ────────────────────────────────────────
 function UsersAdmin({currentUser}){
   const t=useT();
@@ -2013,6 +2031,7 @@ function MainApp({user,onLogout}){
       {appTab==="jobcard"&&<div style={{padding:"12px 16px 30px"}}><JobCard/></div>}
       {appTab==="clients"&&<div style={{padding:"12px 16px 30px"}}><ClientBase/></div>}
       {appTab==="settings"&&(<>
+        {user.role==='admin'&&<div style={{padding:"0 16px"}}><ApiAdmin/></div>}
         {user.role==='admin'&&<div style={{padding:"0 16px"}}><UsersAdmin currentUser={user}/></div>}
         <StaffSettings staff={staff} setStaff={setStaff}/>
       </>)}
