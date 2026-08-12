@@ -185,6 +185,7 @@ const calcStaff=s=>{
   return {wh,lw,av,ew,em:ew*4,mh:wh*4,kpd:av>0?Math.round(ew/av*100):0};
 };
 const kc=k=>k<70?{bg:C.green,l:tr("норма")}:k<85?{bg:C.amber,l:tr("цель")}:{bg:C.red,l:tr("перегруз")};
+const englishRole=role=>({Mechanik:"Mechanic",Electrisity:"Electrician"}[role]||role);
 const buildSlots=s=>s.slots.map(sl=>({
   id:sl.id,label:sl.label,color:sl.color,textColor:sl.textColor,
   eff:sl.eff,start:sl.startTime,end:sl.startTime+sl.hours,srcId:sl.id,
@@ -474,8 +475,8 @@ function SmartBookingModal({staff,allStaff,startDate,initialSlot,bookings,onConf
       <div style={{background:C.card,borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 8px 40px rgba(26,63,92,0.25)",overflow:"hidden",margin:"auto"}}>
         <div style={{background:staff.color,padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
-            <div style={{fontWeight:800,fontSize:14,color:staff.textColor}}>🔧 Запись — цепочка мастеров</div>
-            <div style={{fontSize:11,color:staff.textColor,opacity:0.8}}>Этапы встанут во времени друг за другом</div>
+            <div style={{fontWeight:800,fontSize:14,color:staff.textColor}}>🔧 Booking — technician chain</div>
+            <div style={{fontSize:11,color:staff.textColor,opacity:0.8}}>Stages will be scheduled one after another</div>
           </div>
           <button onClick={onClose} style={{background:"rgba(0,0,0,0.12)",border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",color:staff.textColor}}>×</button>
         </div>
@@ -570,7 +571,7 @@ function SlotModal({staff,date,slot,existing,onSave,onDelete,onClose}){
             <div style={{fontWeight:800,fontSize:13,color:slot.textColor}}>{staff.emoji} {staff.name} — {slot.label}</div>
             <div style={{fontSize:11,color:slot.textColor,opacity:0.8}}>
               {date.toLocaleDateString(LANG,{weekday:"long",day:"numeric",month:"long"})} · {fmt(slot.start)}–{fmt(slot.end)}
-              {isCont&&<span style={{marginLeft:8,background:"rgba(0,0,0,0.12)",borderRadius:4,padding:"1px 5px",fontSize:9}}>Продолжение</span>}
+              {isCont&&<span style={{marginLeft:8,background:"rgba(0,0,0,0.12)",borderRadius:4,padding:"1px 5px",fontSize:9}}>Continuation</span>}
             </div>
           </div>
           <button onClick={onClose} style={{background:"rgba(0,0,0,0.12)",border:"none",borderRadius:8,width:28,height:28,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",color:slot.textColor}}>×</button>
@@ -749,7 +750,7 @@ function DayView({date,staff,bookings,onSlotClick,activeStaffId}){
   const t=useT();
   const dow=(date.getDay()+6)%7+1;
   const filtered=(activeStaffId==="all"?staff:staff.filter(s=>s.id===activeStaffId)).filter(s=>s.workDays.includes(dow));
-  if(!filtered.length)return<div style={{textAlign:"center",padding:40,color:C.muted,fontSize:14}}>В этот день никто не работает</div>;
+  if(!filtered.length)return<div style={{textAlign:"center",padding:40,color:C.muted,fontSize:14}}>No technicians are working on this day</div>;
   const HOURS=Array.from({length:DAY_END-DAY_START+1},(_,i)=>DAY_START+i);
   const isPast=date<today()&&!isSameDay(date,today());
   const toPx=h=>(h-DAY_START)*PPH;
@@ -842,8 +843,8 @@ function DayTimeline({staff,onSlotsChange}){
   const saveLabel=(id,label)=>{setEditId(null);const upd=blocksRef.current.map(b=>b.id===id?{...b,label}:b);setBlocks(upd);commit(upd);};
   return(<div style={{marginTop:12,background:"#F0F4F8",borderRadius:10,padding:12}}>
     <div style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:4}}>
-      <span>📅 Предпросмотр дня — интерактивный</span>
-      <span style={{fontSize:9,color:C.muted,fontWeight:400,fontStyle:"italic"}}>Тяни = сдвинуть · ↕ низ = длина · 2× = переименовать</span>
+      <span>📅 Interactive day preview</span>
+      <span style={{fontSize:9,color:C.muted,fontWeight:400,fontStyle:"italic"}}>Drag = move · ↕ bottom = resize · double-click = rename</span>
     </div>
     <div style={{display:"flex",gap:0}}>
       <div style={{width:38,flexShrink:0,position:"relative",height:(DAY_END-DAY_START)*PPH}}>
@@ -888,8 +889,8 @@ function DayTimeline({staff,onSlotsChange}){
       ))}
     </div>
     <div style={{marginTop:4,fontSize:9,color:C.muted,display:"flex",gap:10}}>
-      <span>🖱 Тяни = сдвинуть</span><span>↕ Тяни низ = длина</span><span>✏️ 2× = переименовать</span>
-      <span style={{marginLeft:"auto",color:C.green,fontWeight:600}}>↑ Изменения сразу в календаре</span>
+      <span>🖱 Drag = move</span><span>↕ Drag bottom = resize</span><span>✏️ Double-click = rename</span>
+      <span style={{marginLeft:"auto",color:C.green,fontWeight:600}}>↑ Changes appear in the calendar immediately</span>
     </div>
   </div>);
 }
@@ -945,8 +946,8 @@ function SlotFinder({staff, bookings, onConfirm}) {
       <div style={{flex:"0 0 340px",minWidth:280,display:"flex",flexDirection:"column",gap:12}}>
         <div style={{background:C.card,borderRadius:12,overflow:"hidden",boxShadow:"0 1px 8px rgba(26,63,92,0.07)"}}>
           <div style={{background:C.primary,padding:"10px 14px"}}>
-            <div style={{color:"#fff",fontWeight:700,fontSize:13}}>🔍 Параметры подбора</div>
-            <div style={{color:"#9BB8D0",fontSize:10,marginTop:2}}>Заполните — система найдёт ближайший вариант</div>
+            <div style={{color:"#fff",fontWeight:700,fontSize:13}}>🔍 Search parameters</div>
+            <div style={{color:"#9BB8D0",fontSize:10,marginTop:2}}>Fill in the form — the system will find the nearest option</div>
           </div>
           <div style={{padding:14,display:"flex",flexDirection:"column",gap:12}}>
 
@@ -963,7 +964,7 @@ function SlotFinder({staff, bookings, onConfirm}) {
                 {wantDate&&<button onClick={()=>setWantDate("")}
                   style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:16,lineHeight:1}}>×</button>}
               </div>
-              {!wantDate&&<div style={{fontSize:10,color:C.muted,marginTop:3}}>Не выбрана — подберём с сегодняшнего дня</div>}
+              {!wantDate&&<div style={{fontSize:10,color:C.muted,marginTop:3}}>Not selected — searching from today</div>}
             </div>
 
             {/* Клиент + авто */}
@@ -996,10 +997,10 @@ function SlotFinder({staff, bookings, onConfirm}) {
         {confirmed&&(
           <div style={{background:"#EDF9F0",border:`1.5px solid ${C.green}`,borderRadius:12,padding:"20px 16px",textAlign:"center"}}>
             <div style={{fontSize:32,marginBottom:8}}>✅</div>
-            <div style={{fontWeight:700,fontSize:15,color:C.green,marginBottom:4}}>Запись подтверждена!</div>
+            <div style={{fontWeight:700,fontSize:15,color:C.green,marginBottom:4}}>Booking confirmed!</div>
             <div style={{fontSize:12,color:C.muted,marginBottom:14}}>{client}{car?` · ${car}`:""}</div>
             <button onClick={reset} style={{padding:"8px 20px",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,color:C.primary,cursor:"pointer",fontWeight:600,fontSize:12}}>
-              + Новый подбор
+              + New search
             </button>
           </div>
         )}
@@ -1019,14 +1020,14 @@ function SlotFinder({staff, bookings, onConfirm}) {
           <div style={{background:C.card,borderRadius:12,overflow:"hidden",boxShadow:"0 1px 8px rgba(26,63,92,0.07)"}}>
             <div style={{background:C.sub,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div style={{color:"#fff",fontWeight:700,fontSize:13}}>{tr("Цепочка")} · {sch.length} {tr("этап(ов)")}{opts.length>1?` · ${tr("вариант")} ${chosen+1}/${opts.length}`:""}</div>
-              <div style={{color:"rgba(255,255,255,0.8)",fontSize:10}}>{client||"—"}{car?` · ${car}`:""} · {chainDays} дн.</div>
+              <div style={{color:"rgba(255,255,255,0.8)",fontSize:10}}>{client||"—"}{car?` · ${car}`:""} · {chainDays} d</div>
             </div>
             <div style={{padding:14,display:"flex",flexDirection:"column",gap:6}}>
               {opts.length>1&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>
                 {opts.map((o,i)=>{const f=o[0].firstDate,l=o[o.length-1].lastDate,multi=!isSameDay(f,l);return(
                   <button key={i} onClick={()=>setChosen(i)} style={{flex:"1 1 30%",minWidth:100,padding:"7px 9px",borderRadius:10,border:`2px solid ${chosen===i?C.primary:C.border}`,background:chosen===i?"#EAF2FF":"#FAFBFC",cursor:"pointer",textAlign:"left"}}>
                     <div style={{fontSize:12,fontWeight:800,color:C.primary}}>{f.toLocaleDateString(LANG,{day:"numeric",month:"short"})}{multi?` → ${l.toLocaleDateString(LANG,{day:"numeric",month:"short"})}`:""}</div>
-                    <div style={{fontSize:9,color:C.muted}}>{f.toLocaleDateString(LANG,{weekday:"short"})} · {o.length} эт.</div>
+                    <div style={{fontSize:9,color:C.muted}}>{f.toLocaleDateString(LANG,{weekday:"short"})} · {o.length} stages</div>
                   </button>);})}
               </div>}
               {sch.map((st,i)=>{
@@ -1082,7 +1083,7 @@ function StaffSettings({staff,setStaff}){
       <div style={{background:C.primary,padding:"9px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <span style={{color:"#fff",fontWeight:700,fontSize:13}}>{tr("📊 Нагрузка команды")}</span>
         <div style={{display:"flex",gap:10,alignItems:"center"}}>
-          <span style={{color:"#FBC84A",fontWeight:700,fontSize:11}}>КПД {aKpd}% · {tEW.toFixed(1)}ч/нед</span>
+          <span style={{color:"#FBC84A",fontWeight:700,fontSize:11}}>Efficiency {aKpd}% · {tEW.toFixed(1)} h/wk</span>
           <button onClick={addStaff} style={{padding:"4px 10px",background:"rgba(255,255,255,0.15)",border:"none",borderRadius:6,color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700}}>{tr("＋ Сотрудник")}</button>
         </div>
       </div>
@@ -1097,9 +1098,9 @@ function StaffSettings({staff,setStaff}){
               </td>
               <td style={TD()}><input type="number" min={1} max={7} value={s.daysPerWeek} onChange={e=>upS(s.id,"daysPerWeek",+e.target.value)} style={{...i2,width:42,textAlign:"center",fontWeight:700,background:"#FFFBEF",borderColor:"#FBC84A"}}/></td>
               <td style={TD()}><input type="number" min={4} max={12} value={s.hoursDay} onChange={e=>upS(s.id,"hoursDay",+e.target.value)} style={{...i2,width:42,textAlign:"center",fontWeight:700,background:"#FFFBEF",borderColor:"#FBC84A"}}/></td>
-              <td style={TD({color:C.sub,fontWeight:700})}>{cv.wh}ч</td>
-              <td style={TD({fontWeight:800,color:C.primary})}>{cv.ew.toFixed(1)}ч</td>
-              <td style={TD({color:C.primary})}>{cv.em.toFixed(1)}ч</td>
+              <td style={TD({color:C.sub,fontWeight:700})}>{cv.wh} h</td>
+              <td style={TD({fontWeight:800,color:C.primary})}>{cv.ew.toFixed(1)} h</td>
+              <td style={TD({color:C.primary})}>{cv.em.toFixed(1)} h</td>
               <td style={TD()}><span style={{padding:"2px 8px",borderRadius:99,background:k.bg,color:"#fff",fontWeight:700,fontSize:11}}>{cv.kpd}%</span></td>
               <td style={TD()}><button onClick={()=>rmStaff(s.id)} style={{background:"transparent",border:"none",color:"#CCC",cursor:"pointer",fontSize:14}}>×</button></td>
             </tr>
@@ -1107,16 +1108,16 @@ function StaffSettings({staff,setStaff}){
           <tr style={{background:C.primary}}>
             <td colSpan={2} style={TD({color:"#fff",fontWeight:700,textAlign:"left"})}>{tr("ИТОГО")}</td>
             <td colSpan={2} style={TD({color:"#fff"})}/>
-            <td style={TD({color:"#fff",fontWeight:700})}>{stats.reduce((a,s)=>a+s.wh,0)}ч</td>
-            <td style={TD({color:"#7DC8A8",fontWeight:800})}>{tEW.toFixed(1)}ч</td>
-            <td style={TD({color:"#7DC8A8"})}>{stats.reduce((a,s)=>a+s.em,0).toFixed(1)}ч</td>
+            <td style={TD({color:"#fff",fontWeight:700})}>{stats.reduce((a,s)=>a+s.wh,0)} h</td>
+            <td style={TD({color:"#7DC8A8",fontWeight:800})}>{tEW.toFixed(1)} h</td>
+            <td style={TD({color:"#7DC8A8"})}>{stats.reduce((a,s)=>a+s.em,0).toFixed(1)} h</td>
             <td colSpan={2} style={TD()}><span style={{padding:"2px 8px",borderRadius:99,background:kc(aKpd).bg,color:"#fff",fontWeight:700,fontSize:11}}>{aKpd}%</span></td>
           </tr>
         </tbody>
       </table>
     </div>
     <div style={{background:"#FFF8E8",border:"1px solid #FBC84A",borderRadius:8,padding:"8px 12px",fontSize:11,color:"#5A3C00"}}>
-      ✏️ Нажмите иконку/имя → редактор слотов + интерактивный таймлайн. Каждый слот независим.
+      ✏️ Click an icon or name to open the slot editor and interactive timeline. Each slot is independent.
     </div>
     {staff.map((s,si)=>{
       const cv=stats[si];const k=kc(cv.kpd);
@@ -1141,15 +1142,15 @@ function StaffSettings({staff,setStaff}){
               </label>
             ))}
             <label style={{display:"flex",flexDirection:"column",gap:3}}>
-              <span style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:"uppercase"}}>Цвет</span>
+              <span style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:"uppercase"}}>Color</span>
               <div style={{display:"flex",gap:4}}>{COLORS.slice(0,8).map(c=><div key={c} onClick={()=>upS(s.id,"color",c)} style={{width:20,height:20,borderRadius:4,background:c,cursor:"pointer",border:`2px solid ${s.color===c?C.primary:"transparent"}`}}/>)}</div>
             </label>
             <div style={{display:"flex",flexDirection:"column",gap:3}}>
-              <span style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:"uppercase"}}>Эфф.ч/нед</span>
+              <span style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:"uppercase"}}>Eff. h/wk</span>
               <div style={{width:60,padding:"5px",border:`1.5px solid ${C.border}`,borderRadius:6,fontSize:13,fontWeight:800,textAlign:"center",color:k.bg}}>{cv.ew.toFixed(1)}</div>
             </div>
           </div>
-          <div style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",marginBottom:5}}>Слоты — каждый независим</div>
+          <div style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",marginBottom:5}}>Slots — each one is independent</div>
           <div style={{display:"grid",gridTemplateColumns:"10px 1fr 82px 72px 36px 48px 28px 18px",gap:4,padding:"2px 8px",marginBottom:2}}>
             {["","Название","Начало","Дл-сть","До","Цвет","Эфф",""].map((h,i)=><div key={i} style={{fontSize:8,fontWeight:700,color:C.muted,textTransform:"uppercase",textAlign:"center"}}>{tr(h)}</div>)}
           </div>
@@ -1175,13 +1176,13 @@ function StaffSettings({staff,setStaff}){
               </div>
             ))}
           </div>
-          <button onClick={()=>addSl(s.id)} style={{background:"transparent",border:`1.5px dashed ${C.border}`,color:C.sub,borderRadius:7,padding:"5px 12px",fontSize:11,cursor:"pointer",width:"100%",marginBottom:4}}>+ Добавить слот</button>
+          <button onClick={()=>addSl(s.id)} style={{background:"transparent",border:`1.5px dashed ${C.border}`,color:C.sub,borderRadius:7,padding:"5px 12px",fontSize:11,cursor:"pointer",width:"100%",marginBottom:4}}>+ Add slot</button>
           <DayTimeline staff={s} onSlotsChange={ns=>setStaff(p=>p.map(st=>st.id!==s.id?st:{...st,slots:ns}))}/>
         </div>
       </div>);
     })}
     <div style={{display:"flex",gap:10,flexWrap:"wrap",fontSize:10,color:C.muted}}>
-      <span>🟢 &lt;70% норма</span><span>🟡 70–84% цель</span><span>🔴 ≥85% перегруз</span>
+      <span>🟢 &lt;70% normal</span><span>🟡 70–84% target</span><span>🔴 ≥85% overloaded</span>
     </div>
   </div>);
 }
@@ -1239,7 +1240,7 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
       <input value={client} autoFocus={autoFocus} placeholder={tr("Начните вводить имя…")}
         onChange={e=>onChange({client:e.target.value,clientId:null,car:"",carId:null})}
         onFocus={()=>setOpen(true)} onBlur={()=>setTimeout(()=>setOpen(false),160)} style={inp}/>
-      {clientId?<div style={{fontSize:10,color:C.green,fontWeight:700,marginTop:2}}>✓ выбран из базы</div>:null}
+      {clientId?<div style={{fontSize:10,color:C.green,fontWeight:700,marginTop:2}}>✓ selected from database</div>:null}
       {open&&<div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:60,background:"#fff",border:`1px solid ${C.border}`,borderRadius:8,boxShadow:"0 6px 20px rgba(0,0,0,0.14)",maxHeight:190,overflowY:"auto",marginTop:2}}>
         {matches.slice(0,40).map(c=>(
           <div key={c.id} onMouseDown={()=>pickClient(c)} style={{padding:"7px 10px",cursor:"pointer",borderBottom:`1px solid ${C.bg}`}}>
@@ -1247,8 +1248,8 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
             <div style={{fontSize:10,color:C.muted}}>{c.phone||""}{c.phone&&(c.cars||[]).length?"  ·  ":""}{(c.cars||[]).length?(c.cars||[]).map(x=>[carLabel(x),x.plate].filter(Boolean).join(" ")).join(", "):""}</div>
           </div>
         ))}
-        {s&&!exact&&<div onMouseDown={()=>setAddC({name:client.trim(),phone:"",email:"",type:"individual",contactPerson:"",taxNumber:"",companyAddress:""})} style={{padding:"9px 10px",cursor:"pointer",color:C.sub,fontWeight:700,fontSize:12,background:"#F0F7FF"}}>＋ Добавить «{client.trim()}» в базу</div>}
-        {!matches.length&&!s&&<div style={{padding:"9px 10px",fontSize:11,color:C.muted}}>База пуста — введите имя, чтобы добавить</div>}
+        {s&&!exact&&<div onMouseDown={()=>setAddC({name:client.trim(),phone:"",email:"",type:"individual",contactPerson:"",taxNumber:"",companyAddress:""})} style={{padding:"9px 10px",cursor:"pointer",color:C.sub,fontWeight:700,fontSize:12,background:"#F0F7FF"}}>＋ Add “{client.trim()}” to database</div>}
+        {!matches.length&&!s&&<div style={{padding:"9px 10px",fontSize:11,color:C.muted}}>The database is empty — enter a name to add a client</div>}
       </div>}
     </div>
     <div>
@@ -1256,11 +1257,11 @@ function ClientCarPicker({client,car,clientId,carId,onChange,inp,autoFocus}){
       {clientId?(<div>
         {cars.length>0?(
           <select value={carId||""} onChange={e=>{const id=+e.target.value;const cr=cars.find(x=>x.id===id);if(cr)pickCar(cr);}} style={{...inp,cursor:"pointer",background:"#fff"}}>
-            <option value="" disabled>Выберите машину…</option>
+            <option value="" disabled>Select a vehicle…</option>
             {cars.map(cr=><option key={cr.id} value={cr.id}>{carLabel(cr)}{cr.plate?` · ${cr.plate}`:""}</option>)}
           </select>
-        ):<div style={{fontSize:11,color:C.muted}}>У клиента пока нет машин</div>}
-        <button type="button" onClick={()=>setAddCar({make:"",model:"",vin:"",plate:""})} style={link}>＋ Добавить машину</button>
+        ):<div style={{fontSize:11,color:C.muted}}>This client has no vehicles yet</div>}
+        <button type="button" onClick={()=>setAddCar({make:"",model:"",vin:"",plate:""})} style={link}>＋ Add vehicle</button>
       </div>):(
         <input value={car} onChange={e=>onChange({car:e.target.value,carId:null})} placeholder={tr("BMW X3… (или выберите клиента)")} style={inp}/>
       )}
@@ -1399,7 +1400,7 @@ function ClientBase(){
       <button onClick={()=>fileRef.current&&fileRef.current.click()} style={btn("#EAF2FF",C.sub)}>{tr("⬆ Загрузить Excel")}</button>
       <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onFile} style={{display:"none"}}/>
     </div>
-    <div style={{fontSize:12,color:C.muted,marginBottom:10}}>Клиентов: {clients.length}{q?` · ${tr("найдено")}: ${filtered.length}`:""}</div>
+    <div style={{fontSize:12,color:C.muted,marginBottom:10}}>Clients: {clients.length}{q?` · found: ${filtered.length}`:""}</div>
     {filtered.length===0?<div style={{padding:30,textAlign:"center",color:C.muted}}>{tr("Ничего не найдено")}</div>:
     filtered.map(c=>{
       const open=expanded===c.id;
@@ -1415,14 +1416,14 @@ function ClientBase(){
           <span style={{color:C.muted,fontSize:12}}>{open?"▲":"▼"}</span>
         </div>
         {open&&<div style={{padding:"0 12px 12px",borderTop:`1px solid ${C.border}`}}>
-          {c.type==="company"&&(c.taxNumber||c.companyAddress)?<div style={{fontSize:12,color:C.muted,margin:"8px 0"}}>{c.taxNumber?<div>🧾 Налоговый №: {c.taxNumber}</div>:null}{c.companyAddress?<div>📍 {c.companyAddress}</div>:null}</div>:null}
+          {c.type==="company"&&(c.taxNumber||c.companyAddress)?<div style={{fontSize:12,color:C.muted,margin:"8px 0"}}>{c.taxNumber?<div>🧾 Tax number: {c.taxNumber}</div>:null}{c.companyAddress?<div>📍 {c.companyAddress}</div>:null}</div>:null}
           {c.note?<div style={{fontSize:12,color:C.muted,margin:"8px 0",fontStyle:"italic"}}>📝 {c.note}</div>:null}
           <div style={{marginTop:8}}>
             {c.cars.length===0&&<div style={{fontSize:12,color:C.muted,marginBottom:6}}>{tr("Машин пока нет")}</div>}
             {c.cars.map(car=>(<div key={car.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",background:C.bg,borderRadius:8,marginBottom:5}}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:600,color:C.primary}}>{[car.make,car.model,car.submodel].filter(Boolean).join(" ")||"—"}{car.year?` · ${car.year}`:""}</div>
-                <div style={{fontSize:10,color:C.muted}}>{car.plate?`№ ${car.plate}`:""}{car.plate&&car.vin?"  ·  ":""}{car.vin?`VIN ${car.vin}`:""}</div>
+                <div style={{fontSize:10,color:C.muted}}>{car.plate?`Plate ${car.plate}`:""}{car.plate&&car.vin?"  ·  ":""}{car.vin?`VIN ${car.vin}`:""}</div>
                 {(car.fuel||car.transmission||car.drivetrain||car.bodytype)?<div style={{fontSize:10,color:C.muted}}>{[car.fuel,car.transmission,car.drivetrain,car.bodytype].filter(Boolean).join(" · ")}</div>:null}
               </div>
               <button onClick={()=>setCarForm({id:car.id,client_id:c.id,make:car.make||"",model:car.model||"",submodel:car.submodel||"",year:car.year||"",fuel:car.fuel||"",vin:car.vin||"",plate:car.plate||"",drivetrain:car.drivetrain||"",transmission:car.transmission||"",bodytype:car.bodytype||""})} style={{...btn("transparent",C.sub),padding:"4px 7px"}}>✎</button>
@@ -1486,7 +1487,7 @@ function ClientBase(){
     </Modal>}
     {imp&&<Modal title={tr("Загрузка из Excel")} onClose={()=>setImp(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
-        <div style={{fontSize:13,color:C.primary}}>В файле: <b>{imp.list.length}</b> клиентов, <b>{imp.cars}</b> машин.</div>
+        <div style={{fontSize:13,color:C.primary}}>File contents: <b>{imp.list.length}</b> clients, <b>{imp.cars}</b> vehicles.</div>
         <div style={{fontSize:12,color:C.muted}}>{tr("Дубли определяются по имя+телефон (клиент) и VIN / гос.номеру (машина).")}</div>
         <button onClick={()=>doImport('add')} disabled={busy} style={{padding:"11px 0",border:"none",borderRadius:8,background:C.primary,color:"#fff",fontWeight:700,cursor:"pointer",opacity:busy?0.6:1}}>{tr("➕ Добавить только новые")}</button>
         <button onClick={()=>doImport('upsert')} disabled={busy} style={{padding:"11px 0",border:`1.5px solid ${C.sub}`,borderRadius:8,background:"#EAF2FF",color:C.sub,fontWeight:700,cursor:"pointer",opacity:busy?0.6:1}}>{tr("🔄 Добавить + обновить совпавших")}</button>
@@ -1543,7 +1544,7 @@ function JobCard(){
              rows.map((r,i)=>(<tr key={i} style={{borderTop:`1px solid ${C.border}`}}>
                <td style={{...td,width:28}}><input type="checkbox"/></td>
                <td style={td}><div style={{fontWeight:700}}>{r.item}</div>
-                 <div style={{fontSize:10,color:C.muted}}>Себест.: {money(r.cost)} · Прибыль: {money(calcRow(r)-(+r.cost||0))}</div>
+                 <div style={{fontSize:10,color:C.muted}}>Cost: {money(r.cost)} · Profit: {money(calcRow(r)-(+r.cost||0))}</div>
                  {r.tag&&<div style={{fontSize:10,color:C.muted}}>🏷 {r.tag}</div>}</td>
                <td style={{...td,color:C.sub,fontWeight:600,cursor:"pointer"}}>{r.technician||tr("Назначить")}</td>
                <td style={td}><span style={{fontSize:11,color:C.muted,border:`1px dashed ${C.border}`,borderRadius:6,padding:"2px 8px"}}>{tr("＋ Метка")}</span></td>
@@ -1567,7 +1568,7 @@ function JobCard(){
     {/* Верхняя панель: номера + дата + иконки */}
     <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:12}}>
       <div>
-        <div style={{fontSize:17,fontWeight:800,color:C.primary}}>ЗАКАЗ-000001 <span style={{color:C.muted}}>|</span> СМЕТА-000001 <span style={{color:C.sub}}>| СЧЁТ-000001</span></div>
+        <div style={{fontSize:17,fontWeight:800,color:C.primary}}>JOB-000001 <span style={{color:C.muted}}>|</span> ESTIMATE-000001 <span style={{color:C.sub}}>| INVOICE-000001</span></div>
         <div style={{fontSize:12,color:C.muted,marginTop:3,display:"flex",alignItems:"center",gap:8}}>
           {today().toLocaleDateString(LANG,{day:"numeric",month:"short",year:"numeric"})}
           <span style={{background:"#EAF7EE",color:C.green,fontWeight:700,fontSize:11,padding:"2px 10px",borderRadius:20}}>{tr("Открыта")}</span>
@@ -1594,10 +1595,10 @@ function JobCard(){
             <div style={{fontSize:11,color:C.muted}}>{selCar.plate?`${tr("Номер")}: ${selCar.plate}   `:""}{selCar.vin?`VIN: ${selCar.vin}`:""}</div></div>
         </div>}
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:16}}>📍</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>{tr("Адрес счёта")}</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Пхукет, 83000":tr("не указан")}</div></div>
+          <span style={{fontSize:16}}>📍</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>{tr("Адрес счёта")}</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Phuket, 83000":tr("не указан")}</div></div>
         </div>
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:16}}>🚚</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>{tr("Адрес доставки")}</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Пхукет, 83000":tr("не указан")}</div></div>
+          <span style={{fontSize:16}}>🚚</span><div><div style={{fontSize:12,fontWeight:700,color:C.primary}}>{tr("Адрес доставки")}</div><div style={{fontSize:11,color:C.muted}}>{selClient?"Phuket, 83000":tr("не указан")}</div></div>
         </div>
       </div>
       <div style={{flex:"1 1 300px",minWidth:260}}>
@@ -1806,7 +1807,7 @@ function MainApp({user,onLogout}){
       apiGet('/staff').catch(()=>({staff:null})),
     ]).then(([bRes, sRes])=>{
       if(bRes.bookings) setBook(bRes.bookings);
-      if(sRes.staff)    setStaff(sRes.staff);
+      if(sRes.staff)    setStaff(sRes.staff.map(s=>({...s,role:englishRole(s.role)})));
       setLastSync(new Date());
       setLoading(false);
     }).catch(()=>setLoading(false));
